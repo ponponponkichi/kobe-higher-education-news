@@ -1,0 +1,14 @@
+01_input/
+04_backup/
+AGENTS.md
+02_output/*.db
+02_output/*.db-*
+02_output/*.tmp
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.log
+.venv/
+venv/
+.env
+.streamlit/secrets.toml
