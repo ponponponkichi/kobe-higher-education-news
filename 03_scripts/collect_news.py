@@ -1,10 +1,19 @@
 """コマンドラインからニュースを更新する。"""
 
+import argparse
+
 from news_app.collector import run_collection
 from news_app.public_feed import build_public_feed
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description="高等教育ニュースを更新します。")
+    parser.add_argument(
+        "--allow-partial",
+        action="store_true",
+        help="一部情報源が失敗しても、取得済みデータを公開して正常終了します。",
+    )
+    args = parser.parse_args()
     results = run_collection()
     print("\nニュース取得結果")
     print("-" * 72)
@@ -24,7 +33,7 @@ def main() -> int:
         f"公表用データ {len(public_feed['articles'])}件 / "
         f"生成日時 {public_feed['generated_at']}"
     )
-    return 1 if failures else 0
+    return 0 if args.allow_partial or not failures else 1
 
 
 if __name__ == "__main__":
