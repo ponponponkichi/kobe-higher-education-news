@@ -171,6 +171,8 @@ Streamlit Community Cloud向けには `.github/workflows/daily_news.yml` を用�
 GitHub Actionsは協定世界時で動くため、`23:00 UTC` を指定し、日本時間の翌朝8時頃に
 1日1回収集します。1媒体が失敗しても、取得できた情報源の公表データは生成します。
 GitHubへ登録後は、Actions画面の `Run workflow` から手動実行して動作確認もできます。
+日次処理では `--allow-partial` を使い、失敗した媒体をログへ残しながら、取得できた
+媒体の更新結果を正常に公開します。
 
 ## 閲覧画面を起動する
 
