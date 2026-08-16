@@ -3,10 +3,21 @@ from unittest.mock import patch
 
 import requests
 
-from news_app.collector import make_article, mext_page_summary
+from news_app.collector import google_news_source, make_article, mext_page_summary
+from news_app.config import NEWS_SEARCHES
 
 
 class CollectorTests(unittest.TestCase):
+    def test_policy_and_newswitch_searches_are_configured(self):
+        self.assertIn('"文部科学省" 大学 when:30d', NEWS_SEARCHES)
+        self.assertIn('"国立大学" when:30d', NEWS_SEARCHES)
+        self.assertIn('site:newswitch.jp/p/ 文科省 when:30d', NEWS_SEARCHES)
+
+    def test_newswitch_search_uses_google_news_rss(self):
+        source = google_news_source('site:newswitch.jp/p/ 文科省 when:30d')
+        self.assertTrue(source["google_news"])
+        self.assertIn("news.google.com/rss/search", source["url"])
+
     def test_pr_times_article_is_excluded(self):
         article = make_article(
             title="神戸大学に関するプレスリリース - PR TIMES",
