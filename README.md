@@ -328,9 +328,6 @@ python -m streamlit run .\03_scripts\app.py
 
 > 本サイトは、公開情報を自動収集・分類した個人運営の情報整理サイトです。詳細・正確な内容はリンク先をご確認ください。分類は自動処理による推定です。
 
-あわせて、Google Analyticsの利用、収集する情報、検索文字を送信しないこと、
-Googleのプライバシーポリシーへのリンクを表示します。
-
 ## Google Analytics
 
 公開サイトの利用状況を把握し、画面と分類の改善に役立てるため、Google Analytics 4を
