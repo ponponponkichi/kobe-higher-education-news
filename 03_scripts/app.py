@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 
 import pandas as pd
@@ -47,6 +48,8 @@ SUBJECT_SUMMARY_ROWS = [
 ]
 DEFAULT_SUBJECT_FILTER = SUBJECT_KOBE
 SITE_URL = os.getenv("NEWS_SITE_URL", "https://kobe-higher-education-news.streamlit.app")
+GA_MEASUREMENT_ID = "G-L6PJED9H5W"
+GA_PUBLIC_HOST = "kobe-higher-education-news.streamlit.app"
 
 SUBJECT_SUMMARY_STYLE = """
 <style>
@@ -112,6 +115,99 @@ div[data-testid="stExpander"] details summary p {
 st.markdown(SUBJECT_SUMMARY_STYLE, unsafe_allow_html=True)
 
 
+def queue_analytics_event(
+    event_name: str, event_parameters: dict[str, object] | None = None
+) -> None:
+    """次の再描画で送信する、個人情報を含まない操作イベントを保存する。"""
+    st.session_state["_pending_analytics_event"] = {
+        "name": event_name,
+        "parameters": event_parameters or {},
+    }
+
+
+def track_filter_change(event_name: str, state_key: str) -> None:
+    """検索文字そのものを除外し、安全なフィルター利用情報だけを記録する。"""
+    value = st.session_state.get(state_key)
+    if state_key == "search_text":
+        parameters: dict[str, object] = {"has_search_text": bool(value)}
+    elif isinstance(value, list):
+        parameters = {"selection_count": len(value)}
+    else:
+        parameters = {"filter_value": str(value)}
+    queue_analytics_event(event_name, parameters)
+
+
+def select_subject(label: str) -> None:
+    """主語の選択状態を変更し、選ばれた公開分類名だけを記録する。"""
+    st.session_state["selected_subject_filter"] = label
+    queue_analytics_event("subject_filter_changed", {"filter_value": label})
+
+
+def initialize_google_analytics() -> None:
+    """公開サイトだけでGoogle Analyticsの安全寄りの計測を有効化する。"""
+    st.html(
+        f"""
+        <script>
+        (() => {{
+            const measurementId = "{GA_MEASUREMENT_ID}";
+            const publicHost = "{GA_PUBLIC_HOST}";
+
+            // PC版（localhost）の操作は公開サイトの集計に混ぜない。
+            if (window.location.hostname !== publicHost) return;
+            if (document.querySelector("script[data-news-portal-ga]")) return;
+
+            window.dataLayer = window.dataLayer || [];
+            window.gtag = window.gtag || function() {{ window.dataLayer.push(arguments); }};
+
+            const tag = document.createElement("script");
+            tag.async = true;
+            tag.src = `https://www.googletagmanager.com/gtag/js?id=${{measurementId}}`;
+            tag.dataset.newsPortalGa = "true";
+            document.head.appendChild(tag);
+
+            window.gtag("js", new Date());
+            window.gtag("config", measurementId, {{
+                send_page_view: true,
+                allow_google_signals: false,
+                allow_ad_personalization_signals: false
+            }});
+        }})();
+        </script>
+        """,
+        unsafe_allow_javascript=True,
+    )
+
+
+def send_pending_analytics_event() -> None:
+    """ウィジェット操作後に保留されたイベントを1回だけ送信する。"""
+    payload = st.session_state.pop("_pending_analytics_event", None)
+    if not payload:
+        return
+
+    safe_payload = json.dumps(payload, ensure_ascii=False)
+    st.html(
+        f"""
+        <script>
+        (() => {{
+            const publicHost = "{GA_PUBLIC_HOST}";
+            const payload = {safe_payload};
+            if (
+                window.location.hostname === publicHost
+                && typeof window.gtag === "function"
+            ) {{
+                window.gtag("event", payload.name, payload.parameters);
+            }}
+        }})();
+        </script>
+        """,
+        unsafe_allow_javascript=True,
+    )
+
+
+initialize_google_analytics()
+send_pending_analytics_event()
+
+
 @st.cache_data(ttl=300)
 def load_articles() -> tuple[pd.DataFrame, str]:
     """収集処理を行わず、公表用JSONだけを読み込む。"""
@@ -168,7 +264,12 @@ def render_new_digest(frame: pd.DataFrame) -> None:
     """4つの主語別にNEWタイトルを折りたたみ表示する。"""
     digest = current_new_articles(frame)
 
-    with st.expander(f"公開3日以内のNEWタイトル一覧を開く（{len(digest)}件）"):
+    with st.expander(
+        f"公開3日以内のNEWタイトル一覧を開く（{len(digest)}件）",
+        key="new_digest_expander",
+        on_change=track_filter_change,
+        args=("new_digest_toggled", "new_digest_expander"),
+    ):
         for icon, _, _, subject in TAB_PRESENTATION:
             group = digest[digest["subject_category"] == subject]
             st.markdown(f"#### {icon} {subject}（{len(group)}件）")
@@ -186,6 +287,8 @@ def render_new_digest(frame: pd.DataFrame) -> None:
             data=build_digest_text(digest),
             file_name=f"higher_education_news_{pd.Timestamp.now():%Y%m%d}.txt",
             mime="text/plain",
+            on_click=queue_analytics_event,
+            args=("new_digest_downloaded",),
         )
         st.caption(
             "画面では公開3日以内の記事を表示します。日次メールでは重複を避けるため、"
@@ -225,13 +328,13 @@ def render_subject_summary(frame: pd.DataFrame) -> str | None:
         with st.container(key=f"subject_summary_row_{index}", border=True):
             columns = st.columns([4.2, 1.2, 1.9, 1.2], vertical_alignment="center")
             button_key = f"subject_filter_{index}_{'selected' if is_selected else 'idle'}"
-            if columns[0].button(
+            columns[0].button(
                 f"{'✓ ' if is_selected else ''}{label}",
                 key=button_key,
                 use_container_width=True,
-            ):
-                st.session_state["selected_subject_filter"] = label
-                st.rerun()
+                on_click=select_subject,
+                args=(label,),
+            )
             columns[1].markdown(
                 f'<div class="subject-summary-number">{len(view):,}<small>件</small></div>',
                 unsafe_allow_html=True,
@@ -302,9 +405,21 @@ with st.sidebar:
         st.info("公表用ニュースデータがまだ生成されていません。")
         st.stop()
 
-    search_text = st.text_input("キーワード検索")
+    search_text = st.text_input(
+        "キーワード検索",
+        key="search_text",
+        on_change=track_filter_change,
+        args=("keyword_search_used", "search_text"),
+    )
     media_placeholder = st.empty()
-    days = st.selectbox("期間", [1, 3, 7, 14, 30, 90, 365, "全期間"], index=2)
+    days = st.selectbox(
+        "期間",
+        [1, 3, 7, 14, 30, 90, 365, "全期間"],
+        index=2,
+        key="period_filter",
+        on_change=track_filter_change,
+        args=("period_filter_changed", "period_filter"),
+    )
     st.caption("条件：関連度あり・新着順")
 
 render_new_digest(frame)
@@ -317,6 +432,8 @@ selected_theme = st.selectbox(
     help="「すべて」はテーマで絞り込まない状態です。",
     key="main_theme_filter",
     label_visibility="collapsed",
+    on_change=track_filter_change,
+    args=("theme_filter_changed", "main_theme_filter"),
 )
 
 
@@ -349,7 +466,13 @@ stored_sources = st.session_state.get("media_filter") or []
 valid_stored_sources = [source for source in stored_sources if source in sources]
 if list(stored_sources) != valid_stored_sources:
     st.session_state["media_filter"] = valid_stored_sources
-selected_sources = media_placeholder.multiselect("媒体", sources, key="media_filter")
+selected_sources = media_placeholder.multiselect(
+    "媒体",
+    sources,
+    key="media_filter",
+    on_change=track_filter_change,
+    args=("media_filter_changed", "media_filter"),
+)
 if selected_sources:
     filtered = filtered[filtered["source_name"].isin(selected_sources)]
 
@@ -368,4 +491,10 @@ render_article_list(view)
 st.caption(
     "本サイトは、公開情報を自動収集・分類した個人運営の情報整理サイトです。"
     "詳細・正確な内容はリンク先をご確認ください。分類は自動処理による推定です。"
+)
+st.caption(
+    "利用状況の把握と改善のためGoogle Analyticsを使用しています。"
+    "閲覧回数、端末・ブラウザの種類、おおよその地域、ページ内の操作など、"
+    "個人を直接特定しないアクセス情報を収集します。"
+    "キーワード検索欄に入力した文字はGoogle Analyticsへ送信しません。"
 )
