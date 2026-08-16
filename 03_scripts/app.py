@@ -286,7 +286,7 @@ with st.sidebar:
     search_text = st.text_input("キーワード検索")
     sources = sorted(frame["source_name"].dropna().unique())
     selected_sources = st.multiselect("媒体", sources)
-    days = st.selectbox("期間", [1, 3, 7, 14, 30, 90, 365], index=4)
+    days = st.selectbox("期間", [1, 3, 7, 14, 30, 90, 365, "全期間"], index=4)
     st.caption("条件：関連度あり・新着順・無料と推定した記事")
 
 render_new_digest(frame)
@@ -303,9 +303,10 @@ selected_theme = st.selectbox(
 
 
 filtered = frame.copy()
-cutoff = pd.Timestamp.now(tz="Asia/Tokyo") - pd.Timedelta(days=days)
-oldest = pd.Timestamp.min.tz_localize("UTC").tz_convert("Asia/Tokyo")
-filtered = filtered[filtered["display_date"].fillna(oldest) >= cutoff]
+if days != "全期間":
+    cutoff = pd.Timestamp.now(tz="Asia/Tokyo") - pd.Timedelta(days=days)
+    oldest = pd.Timestamp.min.tz_localize("UTC").tz_convert("Asia/Tokyo")
+    filtered = filtered[filtered["display_date"].fillna(oldest) >= cutoff]
 filtered = filtered[filtered["paywall_status"] == "free"]
 filtered = filtered[filtered["is_relevant"] == 1]
 if selected_sources:
