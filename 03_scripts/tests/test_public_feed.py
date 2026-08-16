@@ -1,6 +1,9 @@
+import tempfile
 import unittest
+from pathlib import Path
 
-from news_app.public_feed import public_summary
+from news_app.public_feed import build_public_feed, public_summary
+from news_app.storage import connect, upsert_articles
 
 
 class PublicSummaryTests(unittest.TestCase):
@@ -24,6 +27,39 @@ class PublicSummaryTests(unittest.TestCase):
         self.assertEqual(summary, "")
         self.assertEqual(policy, "hidden_press")
 
+    def test_likely_paid_article_is_included_in_public_feed(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            database_path = Path(temporary) / "news.db"
+            output_path = Path(temporary) / "public.json"
+            connection = connect(database_path)
+            upsert_articles(
+                connection,
+                [
+                    {
+                        "fingerprint": "paid-but-relevant",
+                        "title": "国立大学の教育改革を解説",
+                        "summary": "会員向け記事の概要",
+                        "url": "https://example.com/paid",
+                        "source_name": "日本経済新聞",
+                        "source_kind": "rss",
+                        "published_at": "2026-08-16T08:00:00+09:00",
+                        "fetched_at": "2026-08-16T09:00:00+09:00",
+                        "category": "国立大学関係",
+                        "relevance_score": 60,
+                        "kobe_related": 0,
+                        "is_relevant": 1,
+                        "paywall_status": "likely_paid",
+                        "search_query": "国立大学",
+                    }
+                ],
+            )
+            connection.close()
+
+            payload = build_public_feed(database_path, output_path)
+
+            self.assertEqual(len(payload["articles"]), 1)
+            self.assertEqual(payload["articles"][0]["paywall_status"], "likely_paid")
+            self.assertEqual(payload["articles"][0]["summary"], "")
 
 if __name__ == "__main__":
     unittest.main()

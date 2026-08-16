@@ -67,7 +67,7 @@ class UniversityJournalSupplementTests(unittest.TestCase):
         self.assertEqual(merged["first_seen_at"], "2026-08-15T08:00:00+09:00")
         self.assertEqual(merged["url"], "https://univ-journal.jp/123456/")
 
-    def test_paid_or_irrelevant_article_is_not_added(self):
+    def test_paid_article_is_added_but_irrelevant_article_is_not(self):
         paid = rss_article("大学の会員限定ニュース")
         paid["paywall_status"] = "likely_paid"
         irrelevant = rss_article("大学と関係のないニュース")
@@ -78,8 +78,9 @@ class UniversityJournalSupplementTests(unittest.TestCase):
             [paid, irrelevant],
         )
 
-        self.assertEqual(payload["articles"], [])
-        self.assertEqual(added, [])
+        self.assertEqual(len(payload["articles"]), 1)
+        self.assertEqual(len(added), 1)
+        self.assertEqual(added[0]["paywall_status"], "likely_paid")
 
 
 if __name__ == "__main__":
