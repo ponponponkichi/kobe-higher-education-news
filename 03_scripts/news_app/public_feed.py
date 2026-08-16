@@ -78,7 +78,7 @@ def build_public_feed(
         SELECT a.*, COALESCE(GROUP_CONCAT(t.theme, '｜'), '') AS themes
         FROM articles AS a
         LEFT JOIN article_themes AS t ON t.article_id = a.id
-        WHERE a.paywall_status = 'free' AND a.is_relevant = 1
+        WHERE a.is_relevant = 1
         GROUP BY a.id
         """
     ).fetchall()

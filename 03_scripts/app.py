@@ -128,10 +128,10 @@ def format_date(value) -> str:
 
 
 def current_new_articles(frame: pd.DataFrame) -> pd.DataFrame:
-    """無料・関連ありの記事から、現在NEW表示中の記事を返す。"""
+    """関連ありの記事から、現在NEW表示中の記事を返す。"""
     if frame.empty:
         return frame.copy()
-    base = frame[(frame["paywall_status"] == "free") & (frame["is_relevant"] == 1)].copy()
+    base = frame[frame["is_relevant"] == 1].copy()
     return base[base["display_date"].apply(is_new_article)].sort_values(
         ["subject_category", "display_date"], ascending=[True, False]
     )
@@ -293,7 +293,7 @@ with st.sidebar:
     sources = sorted(frame["source_name"].dropna().unique())
     selected_sources = st.multiselect("媒体", sources)
     days = st.selectbox("期間", [1, 3, 7, 14, 30, 90, 365, "全期間"], index=4)
-    st.caption("条件：関連度あり・新着順・無料と推定した記事")
+    st.caption("条件：関連度あり・新着順")
 
 render_new_digest(frame)
 
@@ -313,7 +313,6 @@ if days != "全期間":
     cutoff = pd.Timestamp.now(tz="Asia/Tokyo") - pd.Timedelta(days=days)
     oldest = pd.Timestamp.min.tz_localize("UTC").tz_convert("Asia/Tokyo")
     filtered = filtered[filtered["display_date"].fillna(oldest) >= cutoff]
-filtered = filtered[filtered["paywall_status"] == "free"]
 filtered = filtered[filtered["is_relevant"] == 1]
 if selected_sources:
     filtered = filtered[filtered["source_name"].isin(selected_sources)]

@@ -128,7 +128,7 @@ def merge_feed(remote: dict, rss_articles: list[dict]) -> tuple[dict, list[dict]
     new_articles: list[dict] = []
 
     for item in rss_articles:
-        if item.get("paywall_status") != "free" or not item.get("is_relevant"):
+        if not item.get("is_relevant"):
             continue
         article = _public_article(item, merged.get(item["fingerprint"]))
         merged[item["fingerprint"]] = article
