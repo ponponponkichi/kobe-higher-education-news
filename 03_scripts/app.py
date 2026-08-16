@@ -38,10 +38,20 @@ SUBJECT_SUMMARY_ROWS = [
     ("#7b1fa2", "#ffffff", "すべて", None),
 ]
 DEFAULT_SUBJECT_FILTER = SUBJECT_TABS[0]
-SITE_URL = os.getenv("NEWS_SITE_URL", "http://localhost:8501")
+SITE_URL = os.getenv("NEWS_SITE_URL", "https://kobe-higher-education-news.streamlit.app")
 
 SUBJECT_SUMMARY_STYLE = """
 <style>
+h1 {
+    text-align: center;
+}
+.portal-update-caption {
+    text-align: center;
+    font-size: 1rem;
+    opacity: 0.75;
+    margin-top: -0.6rem;
+    margin-bottom: 1rem;
+}
 .subject-summary-number {
     text-align: center;
     font-size: 1.08rem;
@@ -255,17 +265,21 @@ def render_article_list(view: pd.DataFrame) -> None:
                 st.write(row.summary)
 
 
-st.title("高等教育ニュースポータル")
-st.caption("毎日朝8時頃に更新します。")
-
 frame, generated_at = load_articles()
+
+st.title("高等教育ニュースポータル")
+if generated_at:
+    updated = pd.to_datetime(generated_at, utc=True).tz_convert("Asia/Tokyo")
+    update_caption = f"毎朝8時頃に更新します。（最終データ更新：{updated:%Y年%m月%d日 %H:%M}）"
+else:
+    update_caption = "毎朝8時頃に更新します。"
+st.markdown(
+    f'<div class="portal-update-caption">{update_caption}</div>',
+    unsafe_allow_html=True,
+)
 
 with st.sidebar:
     st.header("補助条件")
-    st.caption("キーワード・媒体・期間を必要に応じて変更します。")
-    if generated_at:
-        updated = pd.to_datetime(generated_at, utc=True).tz_convert("Asia/Tokyo")
-        st.caption(f"最終データ更新：{updated:%Y年%m月%d日 %H:%M}")
     if frame.empty:
         st.info("公表用ニュースデータがまだ生成されていません。")
         st.stop()
@@ -273,11 +287,12 @@ with st.sidebar:
     search_text = st.text_input("キーワード検索")
     sources = sorted(frame["source_name"].dropna().unique())
     selected_sources = st.multiselect("媒体", sources)
-    days = st.selectbox("期間", [1, 3, 7, 14, 30, 90, 365], index=2)
-    st.caption("固定条件：無料と推定した記事・関連度あり・新着順")
+    days = st.selectbox("期間", [1, 3, 7, 14, 30, 90, 365], index=4)
+    st.caption("条件：関連度あり・新着順・無料と推定した記事")
 
 render_new_digest(frame)
 
+st.markdown("<br>", unsafe_allow_html=True)
 st.markdown("### ①ニューステーマを選択")
 selected_theme = st.selectbox(
     "①ニューステーマを選択",
