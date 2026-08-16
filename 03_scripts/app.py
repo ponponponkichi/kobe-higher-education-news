@@ -42,6 +42,12 @@ SITE_URL = os.getenv("NEWS_SITE_URL", "https://kobe-higher-education-news.stream
 
 SUBJECT_SUMMARY_STYLE = """
 <style>
+@media (min-width: 769px) {
+    section[data-testid="stSidebar"] {
+        width: 15.75rem !important;
+        min-width: 15.75rem !important;
+    }
+}
 h1 {
     text-align: center;
 }
