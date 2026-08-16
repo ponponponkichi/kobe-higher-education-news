@@ -191,14 +191,13 @@ def render_subject_summary(frame: pd.DataFrame) -> str | None:
     header = st.columns([4.2, 1.2, 1.9, 1.2])
     header[0].markdown("**主語（クリックして絞り込み）**")
     header[1].markdown("**記事**")
-    header[2].markdown("**うち、本日公開記事**")
+    header[2].markdown("**うち、公開3日以内**")
     header[3].markdown("**媒体数**")
 
-    today = pd.Timestamp.now(tz="Asia/Tokyo").date()
     selected_subject = None
     for index, (_, _, label, subject) in enumerate(SUBJECT_SUMMARY_ROWS):
         view = frame if subject is None else frame[frame["subject_category"] == subject]
-        today_count = int((view["display_date"].dt.date == today).sum()) if not view.empty else 0
+        new_count = int(view["display_date"].apply(is_new_article).sum()) if not view.empty else 0
         source_count = int(view["source_name"].nunique()) if not view.empty else 0
         is_selected = label == selected_label
 
@@ -217,7 +216,7 @@ def render_subject_summary(frame: pd.DataFrame) -> str | None:
                 unsafe_allow_html=True,
             )
             columns[2].markdown(
-                f'<div class="subject-summary-number">{today_count:,}<small>件</small></div>',
+                f'<div class="subject-summary-number">{new_count:,}<small>件</small></div>',
                 unsafe_allow_html=True,
             )
             columns[3].markdown(
