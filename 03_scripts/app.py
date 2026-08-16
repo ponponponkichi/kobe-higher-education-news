@@ -13,7 +13,7 @@ from news_app.taxonomy import SUBJECT_TABS, THEME_ALL, THEME_TABS
 
 
 st.set_page_config(
-    page_title="高等教育ニュース",
+    page_title="高等教育ニュースポータル",
     page_icon="📰",
     layout="wide",
 )
@@ -52,6 +52,10 @@ SUBJECT_SUMMARY_STYLE = """
     font-size: 0.78rem;
     font-weight: 550;
     margin-left: 0.18rem;
+}
+div[data-testid="stExpander"] details summary p {
+    color: #ff2b2b !important;
+    font-weight: 750;
 }
 [class*="st-key-subject_filter_"] button {
     min-height: 2.7rem;
@@ -139,17 +143,8 @@ def build_digest_text(digest: pd.DataFrame) -> str:
 def render_new_digest(frame: pd.DataFrame) -> None:
     """4つの主語別にNEWタイトルを折りたたみ表示する。"""
     digest = current_new_articles(frame)
-    counts = {
-        subject: int((digest["subject_category"] == subject).sum())
-        for subject in SUBJECT_TABS
-    }
-    count_summary = " / ".join(
-        f"{icon}{counts[subject]}件"
-        for icon, _, _, subject in TAB_PRESENTATION
-    )
-    st.info(f"🆕 公開3日以内のNEW概要：{len(digest)}件　{count_summary}")
 
-    with st.expander(f"NEWタイトル一覧を開く（{len(digest)}件）"):
+    with st.expander(f"公開3日以内のNEWタイトル一覧を開く（{len(digest)}件）"):
         for icon, _, _, subject in TAB_PRESENTATION:
             group = digest[digest["subject_category"] == subject]
             st.markdown(f"#### {icon} {subject}（{len(group)}件）")
@@ -174,7 +169,7 @@ def render_new_digest(frame: pd.DataFrame) -> None:
         )
 
 
-def render_subject_summary(frame: pd.DataFrame, total_count: int) -> str | None:
+def render_subject_summary(frame: pd.DataFrame) -> str | None:
     """主語別の件数を一覧表示し、選択された主語を返す。"""
     valid_labels = {label for _, _, label, _ in SUBJECT_SUMMARY_ROWS}
     selected_label = st.session_state.get("selected_subject_filter", DEFAULT_SUBJECT_FILTER)
@@ -182,11 +177,7 @@ def render_subject_summary(frame: pd.DataFrame, total_count: int) -> str | None:
         selected_label = DEFAULT_SUBJECT_FILTER
         st.session_state["selected_subject_filter"] = selected_label
 
-    st.markdown("### ■ニュースの主語選択")
-    st.caption(
-        f"現在の条件に該当する記事は{len(frame):,}件です。"
-        f"公表データ収録総数（全期間）は{total_count:,}件です。"
-    )
+    st.markdown("### ②ニュースの主語を選択")
     header = st.columns([4.2, 1.2, 1.9, 1.2])
     header[0].markdown("**主語（クリックして絞り込み）**")
     header[1].markdown("**記事**")
@@ -264,8 +255,8 @@ def render_article_list(view: pd.DataFrame) -> None:
                 st.write(row.summary)
 
 
-st.title("高等教育ニュース")
-st.caption("毎日朝8時頃に更新します。主語とテーマでニュースを切り替えます。")
+st.title("高等教育ニュースポータル")
+st.caption("毎日朝8時頃に更新します。")
 
 frame, generated_at = load_articles()
 
@@ -287,15 +278,15 @@ with st.sidebar:
 
 render_new_digest(frame)
 
-st.markdown("### ■ニュースのテーマ選択")
+st.markdown("### ①ニューステーマを選択")
 selected_theme = st.selectbox(
-    "■ニュースのテーマ選択",
+    "①ニューステーマを選択",
     [THEME_ALL, *THEME_TABS],
     help="「すべて」はテーマで絞り込まない状態です。",
     key="main_theme_filter",
     label_visibility="collapsed",
 )
-st.caption("テーマを選び、その下の主語別サマリー表で対象となる組織を切り替えます。")
+
 
 filtered = frame.copy()
 cutoff = pd.Timestamp.now(tz="Asia/Tokyo") - pd.Timedelta(days=days)
@@ -319,7 +310,7 @@ if search_text:
 
 filtered = filtered.sort_values("display_date", ascending=False)
 
-selected_subject = render_subject_summary(filtered, len(frame))
+selected_subject = render_subject_summary(filtered)
 selected_label = selected_subject or "すべて"
 st.markdown(f"### 選択中：{selected_label}")
 view = (
