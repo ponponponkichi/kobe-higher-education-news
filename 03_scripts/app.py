@@ -13,7 +13,7 @@ from news_app.taxonomy import SUBJECT_TABS, THEME_ALL, THEME_TABS
 
 
 st.set_page_config(
-    page_title="高等教育ニュース",
+    page_title="高等教育ニュースポータル",
     page_icon="📰",
     layout="wide",
 )
@@ -38,10 +38,20 @@ SUBJECT_SUMMARY_ROWS = [
     ("#7b1fa2", "#ffffff", "すべて", None),
 ]
 DEFAULT_SUBJECT_FILTER = SUBJECT_TABS[0]
-SITE_URL = os.getenv("NEWS_SITE_URL", "http://localhost:8501")
+SITE_URL = os.getenv("NEWS_SITE_URL", "https://kobe-higher-education-news.streamlit.app")
 
 SUBJECT_SUMMARY_STYLE = """
 <style>
+h1 {
+    text-align: center;
+}
+.portal-update-caption {
+    text-align: center;
+    font-size: 1rem;
+    opacity: 0.75;
+    margin-top: -0.6rem;
+    margin-bottom: 1rem;
+}
 .subject-summary-number {
     text-align: center;
     font-size: 1.08rem;
@@ -52,6 +62,10 @@ SUBJECT_SUMMARY_STYLE = """
     font-size: 0.78rem;
     font-weight: 550;
     margin-left: 0.18rem;
+}
+div[data-testid="stExpander"] details summary p {
+    color: #ff2b2b !important;
+    font-weight: 750;
 }
 [class*="st-key-subject_filter_"] button {
     min-height: 2.7rem;
@@ -139,17 +153,8 @@ def build_digest_text(digest: pd.DataFrame) -> str:
 def render_new_digest(frame: pd.DataFrame) -> None:
     """4つの主語別にNEWタイトルを折りたたみ表示する。"""
     digest = current_new_articles(frame)
-    counts = {
-        subject: int((digest["subject_category"] == subject).sum())
-        for subject in SUBJECT_TABS
-    }
-    count_summary = " / ".join(
-        f"{icon}{counts[subject]}件"
-        for icon, _, _, subject in TAB_PRESENTATION
-    )
-    st.info(f"🆕 公開3日以内のNEW概要：{len(digest)}件　{count_summary}")
 
-    with st.expander(f"NEWタイトル一覧を開く（{len(digest)}件）"):
+    with st.expander(f"公開3日以内のNEWタイトル一覧を開く（{len(digest)}件）"):
         for icon, _, _, subject in TAB_PRESENTATION:
             group = digest[digest["subject_category"] == subject]
             st.markdown(f"#### {icon} {subject}（{len(group)}件）")
@@ -174,7 +179,7 @@ def render_new_digest(frame: pd.DataFrame) -> None:
         )
 
 
-def render_subject_summary(frame: pd.DataFrame, total_count: int) -> str | None:
+def render_subject_summary(frame: pd.DataFrame) -> str | None:
     """主語別の件数を一覧表示し、選択された主語を返す。"""
     valid_labels = {label for _, _, label, _ in SUBJECT_SUMMARY_ROWS}
     selected_label = st.session_state.get("selected_subject_filter", DEFAULT_SUBJECT_FILTER)
@@ -182,22 +187,17 @@ def render_subject_summary(frame: pd.DataFrame, total_count: int) -> str | None:
         selected_label = DEFAULT_SUBJECT_FILTER
         st.session_state["selected_subject_filter"] = selected_label
 
-    st.markdown("### ■ニュースの主語選択")
-    st.caption(
-        f"現在の条件に該当する記事は{len(frame):,}件です。"
-        f"公表データ収録総数（全期間）は{total_count:,}件です。"
-    )
+    st.markdown("### ②ニュースの主語を選択")
     header = st.columns([4.2, 1.2, 1.9, 1.2])
     header[0].markdown("**主語（クリックして絞り込み）**")
     header[1].markdown("**記事**")
-    header[2].markdown("**うち、本日公開記事**")
+    header[2].markdown("**うち、公開3日以内**")
     header[3].markdown("**媒体数**")
 
-    today = pd.Timestamp.now(tz="Asia/Tokyo").date()
     selected_subject = None
     for index, (_, _, label, subject) in enumerate(SUBJECT_SUMMARY_ROWS):
         view = frame if subject is None else frame[frame["subject_category"] == subject]
-        today_count = int((view["display_date"].dt.date == today).sum()) if not view.empty else 0
+        new_count = int(view["display_date"].apply(is_new_article).sum()) if not view.empty else 0
         source_count = int(view["source_name"].nunique()) if not view.empty else 0
         is_selected = label == selected_label
 
@@ -216,7 +216,7 @@ def render_subject_summary(frame: pd.DataFrame, total_count: int) -> str | None:
                 unsafe_allow_html=True,
             )
             columns[2].markdown(
-                f'<div class="subject-summary-number">{today_count:,}<small>件</small></div>',
+                f'<div class="subject-summary-number">{new_count:,}<small>件</small></div>',
                 unsafe_allow_html=True,
             )
             columns[3].markdown(
@@ -264,17 +264,21 @@ def render_article_list(view: pd.DataFrame) -> None:
                 st.write(row.summary)
 
 
-st.title("高等教育ニュース")
-st.caption("毎日朝8時頃に更新します。主語とテーマでニュースを切り替えます。")
-
 frame, generated_at = load_articles()
+
+st.title("高等教育ニュースポータル")
+if generated_at:
+    updated = pd.to_datetime(generated_at, utc=True).tz_convert("Asia/Tokyo")
+    update_caption = f"毎朝8時頃に更新します。（最終データ更新：{updated:%Y年%m月%d日 %H:%M}）"
+else:
+    update_caption = "毎朝8時頃に更新します。"
+st.markdown(
+    f'<div class="portal-update-caption">{update_caption}</div>',
+    unsafe_allow_html=True,
+)
 
 with st.sidebar:
     st.header("補助条件")
-    st.caption("キーワード・媒体・期間を必要に応じて変更します。")
-    if generated_at:
-        updated = pd.to_datetime(generated_at, utc=True).tz_convert("Asia/Tokyo")
-        st.caption(f"最終データ更新：{updated:%Y年%m月%d日 %H:%M}")
     if frame.empty:
         st.info("公表用ニュースデータがまだ生成されていません。")
         st.stop()
@@ -282,25 +286,27 @@ with st.sidebar:
     search_text = st.text_input("キーワード検索")
     sources = sorted(frame["source_name"].dropna().unique())
     selected_sources = st.multiselect("媒体", sources)
-    days = st.selectbox("期間", [1, 3, 7, 14, 30, 90, 365], index=2)
-    st.caption("固定条件：無料と推定した記事・関連度あり・新着順")
+    days = st.selectbox("期間", [1, 3, 7, 14, 30, 90, 365, "全期間"], index=4)
+    st.caption("条件：関連度あり・新着順・無料と推定した記事")
 
 render_new_digest(frame)
 
-st.markdown("### ■ニュースのテーマ選択")
+st.markdown("<br>", unsafe_allow_html=True)
+st.markdown("### ①ニューステーマを選択")
 selected_theme = st.selectbox(
-    "■ニュースのテーマ選択",
+    "①ニューステーマを選択",
     [THEME_ALL, *THEME_TABS],
     help="「すべて」はテーマで絞り込まない状態です。",
     key="main_theme_filter",
     label_visibility="collapsed",
 )
-st.caption("テーマを選び、その下の主語別サマリー表で対象となる組織を切り替えます。")
+
 
 filtered = frame.copy()
-cutoff = pd.Timestamp.now(tz="Asia/Tokyo") - pd.Timedelta(days=days)
-oldest = pd.Timestamp.min.tz_localize("UTC").tz_convert("Asia/Tokyo")
-filtered = filtered[filtered["display_date"].fillna(oldest) >= cutoff]
+if days != "全期間":
+    cutoff = pd.Timestamp.now(tz="Asia/Tokyo") - pd.Timedelta(days=days)
+    oldest = pd.Timestamp.min.tz_localize("UTC").tz_convert("Asia/Tokyo")
+    filtered = filtered[filtered["display_date"].fillna(oldest) >= cutoff]
 filtered = filtered[filtered["paywall_status"] == "free"]
 filtered = filtered[filtered["is_relevant"] == 1]
 if selected_sources:
@@ -319,7 +325,7 @@ if search_text:
 
 filtered = filtered.sort_values("display_date", ascending=False)
 
-selected_subject = render_subject_summary(filtered, len(frame))
+selected_subject = render_subject_summary(filtered)
 selected_label = selected_subject or "すべて"
 st.markdown(f"### 選択中：{selected_label}")
 view = (
