@@ -6,7 +6,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .config import DATABASE_PATH, PUBLIC_DATA_PATH
+from .config import DATABASE_PATH, EXCLUDED_PUBLISHERS, PUBLIC_DATA_PATH
 from .storage import connect, ensure_current_classification, ensure_current_subject_themes
 
 
@@ -32,6 +32,14 @@ CAUTIOUS_PUBLISHER_MARKERS = (
     "東洋経済",
     "ダイヤモンド",
 )
+
+
+def is_excluded_public_article(article: dict) -> bool:
+    """媒体名またはタイトルに除外対象が含まれる記事を公表対象外にする。"""
+    exclusion_text = (
+        f"{article.get('source_name', '')} {article.get('title', '')}".casefold()
+    )
+    return any(name.casefold() in exclusion_text for name in EXCLUDED_PUBLISHERS)
 
 
 def public_summary(article: dict) -> tuple[str, str]:
@@ -61,7 +69,7 @@ def _read_existing(path: Path) -> dict[str, dict]:
     return {
         article["fingerprint"]: article
         for article in payload.get("articles", [])
-        if article.get("fingerprint")
+        if article.get("fingerprint") and not is_excluded_public_article(article)
     }
 
 
@@ -87,6 +95,8 @@ def build_public_feed(
     merged = _read_existing(output_path)
     for row in rows:
         article = dict(row)
+        if is_excluded_public_article(article):
+            continue
         previous = merged.get(article["fingerprint"], {})
         if previous.get("first_seen_at"):
             article["first_seen_at"] = previous["first_seen_at"]
@@ -95,7 +105,9 @@ def build_public_feed(
         article.pop("subject_theme_version", None)
         merged[article["fingerprint"]] = article
 
-    articles = list(merged.values())
+    articles = [
+        article for article in merged.values() if not is_excluded_public_article(article)
+    ]
     for article in articles:
         article["summary"], article["summary_policy"] = public_summary(article)
     articles.sort(

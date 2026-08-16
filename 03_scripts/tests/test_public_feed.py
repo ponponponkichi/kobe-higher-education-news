@@ -1,3 +1,4 @@
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -60,6 +61,38 @@ class PublicSummaryTests(unittest.TestCase):
             self.assertEqual(len(payload["articles"]), 1)
             self.assertEqual(payload["articles"][0]["paywall_status"], "likely_paid")
             self.assertEqual(payload["articles"][0]["summary"], "")
+
+    def test_existing_netorabo_source_and_title_are_removed(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            database_path = Path(temporary) / "news.db"
+            output_path = Path(temporary) / "public.json"
+            connection = connect(database_path)
+            connection.close()
+            output_path.write_text(
+                json.dumps(
+                    {
+                        "version": 1,
+                        "articles": [
+                            {
+                                "fingerprint": "netorabo-source",
+                                "source_name": "ねとらぼ",
+                                "title": "大学に関する話題",
+                            },
+                            {
+                                "fingerprint": "netorabo-title",
+                                "source_name": "Yahoo!ニュース",
+                                "title": "大学に関する話題 - ねとらぼ",
+                            },
+                        ],
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+
+            payload = build_public_feed(database_path, output_path)
+
+            self.assertEqual(payload["articles"], [])
 
 if __name__ == "__main__":
     unittest.main()
