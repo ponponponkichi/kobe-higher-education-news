@@ -20,6 +20,31 @@ class CollectorTests(unittest.TestCase):
         )
         self.assertIsNone(article)
 
+    def test_netorabo_source_is_excluded(self):
+        article = make_article(
+            title="大学に関する話題",
+            summary="記事概要",
+            url="https://example.com/netorabo-source",
+            source_name="一般ニュース検索",
+            publisher_name="ねとらぼ",
+            source_kind="rss",
+            published_at=None,
+            targeted_source=False,
+        )
+        self.assertIsNone(article)
+
+    def test_netorabo_in_title_is_excluded(self):
+        article = make_article(
+            title="大学に関する話題 - ねとらぼ",
+            summary="記事概要",
+            url="https://example.com/netorabo-title",
+            source_name="一般ニュース検索",
+            publisher_name="Yahoo!ニュース",
+            source_kind="rss",
+            published_at=None,
+            targeted_source=False,
+        )
+        self.assertIsNone(article)
     @patch(
         "news_app.collector.request_content",
         return_value="""

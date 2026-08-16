@@ -9,7 +9,15 @@ import streamlit as st
 
 from news_app.presentation import is_new_article
 from news_app.public_feed import read_public_feed
-from news_app.taxonomy import SUBJECT_TABS, THEME_ALL, THEME_TABS
+from news_app.taxonomy import (
+    SUBJECT_KOBE,
+    SUBJECT_MEXT,
+    SUBJECT_NATIONAL,
+    SUBJECT_OTHER,
+    SUBJECT_TABS,
+    THEME_ALL,
+    THEME_TABS,
+)
 
 
 st.set_page_config(
@@ -31,13 +39,13 @@ TAB_PRESENTATION = [
     ("🔵", "#0066cc", "#ffffff", SUBJECT_TABS[3]),
 ]
 SUBJECT_SUMMARY_ROWS = [
-    ("#d50000", "#ffffff", SUBJECT_TABS[0], SUBJECT_TABS[0]),
-    ("#ef6c00", "#ffffff", SUBJECT_TABS[1], SUBJECT_TABS[1]),
-    ("#ffd600", "#202020", SUBJECT_TABS[2], SUBJECT_TABS[2]),
-    ("#0066cc", "#ffffff", SUBJECT_TABS[3], SUBJECT_TABS[3]),
-    ("#7b1fa2", "#ffffff", "すべて", None),
+    ("#d50000", "#ffffff", "すべて", None),
+    ("#ef6c00", "#ffffff", SUBJECT_MEXT, SUBJECT_MEXT),
+    ("#ffd600", "#202020", SUBJECT_KOBE, SUBJECT_KOBE),
+    ("#0066cc", "#ffffff", SUBJECT_NATIONAL, SUBJECT_NATIONAL),
+    ("#7b1fa2", "#ffffff", SUBJECT_OTHER, SUBJECT_OTHER),
 ]
-DEFAULT_SUBJECT_FILTER = SUBJECT_TABS[0]
+DEFAULT_SUBJECT_FILTER = SUBJECT_KOBE
 SITE_URL = os.getenv("NEWS_SITE_URL", "https://kobe-higher-education-news.streamlit.app")
 
 SUBJECT_SUMMARY_STYLE = """
@@ -185,13 +193,21 @@ def render_new_digest(frame: pd.DataFrame) -> None:
         )
 
 
-def render_subject_summary(frame: pd.DataFrame) -> str | None:
-    """主語別の件数を一覧表示し、選択された主語を返す。"""
-    valid_labels = {label for _, _, label, _ in SUBJECT_SUMMARY_ROWS}
-    selected_label = st.session_state.get("selected_subject_filter", DEFAULT_SUBJECT_FILTER)
-    if selected_label not in valid_labels:
+def current_subject_selection() -> tuple[str, str | None]:
+    """セッションに保存された主語の表示名と絞り込み値を返す。"""
+    valid_rows = {label: subject for _, _, label, subject in SUBJECT_SUMMARY_ROWS}
+    selected_label = st.session_state.get(
+        "selected_subject_filter", DEFAULT_SUBJECT_FILTER
+    )
+    if selected_label not in valid_rows:
         selected_label = DEFAULT_SUBJECT_FILTER
         st.session_state["selected_subject_filter"] = selected_label
+    return selected_label, valid_rows[selected_label]
+
+
+def render_subject_summary(frame: pd.DataFrame) -> str | None:
+    """主語別の件数を一覧表示し、選択された主語を返す。"""
+    selected_label, selected_subject = current_subject_selection()
 
     st.markdown("### ②ニュースの主語を選択")
     header = st.columns([4.2, 1.2, 1.9, 1.2])
@@ -200,7 +216,6 @@ def render_subject_summary(frame: pd.DataFrame) -> str | None:
     header[2].markdown("**うち、公開3日以内**")
     header[3].markdown("**媒体数**")
 
-    selected_subject = None
     for index, (_, _, label, subject) in enumerate(SUBJECT_SUMMARY_ROWS):
         view = frame if subject is None else frame[frame["subject_category"] == subject]
         new_count = int(view["display_date"].apply(is_new_article).sum()) if not view.empty else 0
@@ -230,8 +245,6 @@ def render_subject_summary(frame: pd.DataFrame) -> str | None:
                 unsafe_allow_html=True,
             )
 
-        if is_selected:
-            selected_subject = subject
 
     return selected_subject
 
@@ -290,9 +303,8 @@ with st.sidebar:
         st.stop()
 
     search_text = st.text_input("キーワード検索")
-    sources = sorted(frame["source_name"].dropna().unique())
-    selected_sources = st.multiselect("媒体", sources)
-    days = st.selectbox("期間", [1, 3, 7, 14, 30, 90, 365, "全期間"], index=4)
+    media_placeholder = st.empty()
+    days = st.selectbox("期間", [1, 3, 7, 14, 30, 90, 365, "全期間"], index=2)
     st.caption("条件：関連度あり・新着順")
 
 render_new_digest(frame)
@@ -314,8 +326,6 @@ if days != "全期間":
     oldest = pd.Timestamp.min.tz_localize("UTC").tz_convert("Asia/Tokyo")
     filtered = filtered[filtered["display_date"].fillna(oldest) >= cutoff]
 filtered = filtered[filtered["is_relevant"] == 1]
-if selected_sources:
-    filtered = filtered[filtered["source_name"].isin(selected_sources)]
 if selected_theme != THEME_ALL:
     filtered = filtered[
         filtered["theme_list"].apply(lambda themes: selected_theme in themes)
@@ -327,6 +337,21 @@ if search_text:
         | filtered["summary"].fillna("").str.casefold().str.contains(needle, regex=False)
     )
     filtered = filtered[matches]
+
+_, source_subject = current_subject_selection()
+source_scope = (
+    filtered
+    if source_subject is None
+    else filtered[filtered["subject_category"] == source_subject]
+)
+sources = sorted(source_scope["source_name"].dropna().unique())
+stored_sources = st.session_state.get("media_filter") or []
+valid_stored_sources = [source for source in stored_sources if source in sources]
+if list(stored_sources) != valid_stored_sources:
+    st.session_state["media_filter"] = valid_stored_sources
+selected_sources = media_placeholder.multiselect("媒体", sources, key="media_filter")
+if selected_sources:
+    filtered = filtered[filtered["source_name"].isin(selected_sources)]
 
 filtered = filtered.sort_values("display_date", ascending=False)
 
