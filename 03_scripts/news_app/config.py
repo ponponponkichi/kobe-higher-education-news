@@ -21,6 +21,7 @@ REQUEST_TIMEOUT = 25
 EXCLUDED_PUBLISHERS = (
     "PR TIMES",
     "ねとらぼ",
+    "NHKニュース",
 )
 
 SOURCES = [

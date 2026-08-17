@@ -56,6 +56,20 @@ class CollectorTests(unittest.TestCase):
             targeted_source=False,
         )
         self.assertIsNone(article)
+
+    def test_nhk_news_source_is_excluded(self):
+        article = make_article(
+            title="女性研究者支援の大学に年間最大5000万円補助へ",
+            summary="記事概要",
+            url="https://example.com/nhk-news",
+            source_name="一般ニュース検索",
+            publisher_name="NHKニュース",
+            source_kind="rss",
+            published_at=None,
+            targeted_source=False,
+        )
+        self.assertIsNone(article)
+
     @patch(
         "news_app.collector.request_content",
         return_value="""

@@ -94,5 +94,33 @@ class PublicSummaryTests(unittest.TestCase):
 
             self.assertEqual(payload["articles"], [])
 
+    def test_existing_nhk_news_article_is_removed(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            database_path = Path(temporary) / "news.db"
+            output_path = Path(temporary) / "public.json"
+            connection = connect(database_path)
+            connection.close()
+            output_path.write_text(
+                json.dumps(
+                    {
+                        "version": 1,
+                        "articles": [
+                            {
+                                "fingerprint": "nhk-news",
+                                "source_name": "NHKニュース",
+                                "title": "大学に関するニュース",
+                            }
+                        ],
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+
+            payload = build_public_feed(database_path, output_path)
+
+            self.assertEqual(payload["articles"], [])
+
+
 if __name__ == "__main__":
     unittest.main()
