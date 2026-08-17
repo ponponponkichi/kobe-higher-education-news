@@ -22,6 +22,7 @@ EXCLUDED_PUBLISHERS = (
     "PR TIMES",
     "ねとらぼ",
     "NHKニュース",
+    "琉球新報",
 )
 
 SOURCES = [
