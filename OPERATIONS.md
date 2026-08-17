@@ -28,8 +28,9 @@ GitHub Actions：<https://github.com/ponponponkichi/kobe-higher-education-news/a
 
 ### 3.1 通常の流れ
 
-GitHub Actionsの `Daily higher education news update` が、毎日23:00 UTC
-（日本時間の翌朝8時頃）に実行されます。
+GitHub Actionsの `Daily higher education news update` が、毎日22:30 UTC
+（日本時間の翌朝7時30分頃）に実行を開始します。GitHub側の混雑による遅延を見込み、
+公開サイト上では「毎朝8時頃に更新」と案内します。
 
 1. GitHub上でPython 3.12を準備
 2. ニュースを収集
