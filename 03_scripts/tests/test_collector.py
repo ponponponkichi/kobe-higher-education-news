@@ -10,6 +10,7 @@ from news_app.config import NEWS_SEARCHES
 class CollectorTests(unittest.TestCase):
     def test_policy_and_newswitch_searches_are_configured(self):
         self.assertIn('"文部科学省" 大学 when:30d', NEWS_SEARCHES)
+        self.assertIn('"女性研究者" 大学 OR 文部科学省 when:30d', NEWS_SEARCHES)
         self.assertIn('"国立大学" when:30d', NEWS_SEARCHES)
         self.assertIn('site:newswitch.jp/p/ 文科省 when:30d', NEWS_SEARCHES)
 
@@ -56,6 +57,20 @@ class CollectorTests(unittest.TestCase):
             targeted_source=False,
         )
         self.assertIsNone(article)
+
+    def test_nhk_news_source_is_excluded(self):
+        article = make_article(
+            title="女性研究者支援の大学に年間最大5000万円補助へ",
+            summary="記事概要",
+            url="https://example.com/nhk-news",
+            source_name="一般ニュース検索",
+            publisher_name="NHKニュース",
+            source_kind="rss",
+            published_at=None,
+            targeted_source=False,
+        )
+        self.assertIsNone(article)
+
     @patch(
         "news_app.collector.request_content",
         return_value="""
