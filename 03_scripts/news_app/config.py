@@ -83,6 +83,9 @@ NEWS_SEARCHES = [
     "高等教育 政策 OR 予算 OR 大学",
     "大学 認証評価 OR 法人評価 OR 内部質保証",
     "大学 入試 OR 就職 OR ランキング",
+    "\"文部科学省\" 大学 when:30d",
+    "\"国立大学\" when:30d",
+    "site:newswitch.jp/p/ 文科省 when:30d",
 ]
 
 LIKELY_PAID_PUBLISHERS = (

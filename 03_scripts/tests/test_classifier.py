@@ -41,6 +41,22 @@ class ClassifierTests(unittest.TestCase):
             with self.subTest(title=title):
                 self.assertEqual(classify_article(title)["category"], CATEGORY_MEXT)
 
+    def test_mext_university_search_covers_researcher_support(self):
+        result = classify_article(
+            "女性研究者支援に補助、1大学に年間5000万円",
+            search_query='"文部科学省" 大学 when:30d',
+        )
+        self.assertEqual(result["category"], CATEGORY_MEXT)
+        self.assertTrue(result["is_relevant"])
+
+    def test_national_university_search_covers_financial_news(self):
+        result = classify_article(
+            "東大さえ赤字、足かせ多く稼げぬ国立大学法人",
+            search_query='"国立大学" when:30d',
+        )
+        self.assertEqual(result["category"], CATEGORY_NATIONAL)
+        self.assertTrue(result["is_relevant"])
+
     def test_generic_public_recommendation_is_not_mext_funding(self):
         result = classify_article("大学の公募推薦入試が始まる")
         self.assertEqual(result["category"], CATEGORY_NATIONAL)
