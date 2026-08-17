@@ -24,6 +24,10 @@ EXCLUDED_PUBLISHERS = (
     "NHKニュース",
     "琉球新報",
     "Infoseek",
+    "ニコニコニュース",
+    "news.nicovideo.jp",
+    "卓球メディア",
+    "Rallys",
 )
 
 SOURCES = [
