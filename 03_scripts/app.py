@@ -8,7 +8,10 @@ import os
 import pandas as pd
 import streamlit as st
 
-from news_app.presentation import is_new_article
+from news_app.presentation import (
+    group_syndicated_articles,
+    is_new_article,
+)
 from news_app.public_feed import read_public_feed
 from news_app.taxonomy import (
     SUBJECT_KOBE,
@@ -80,7 +83,7 @@ h1 {
     font-weight: 550;
     margin-left: 0.18rem;
 }
-div[data-testid="stExpander"] details summary p {
+[class*="st-key-new_digest_expander"] details summary p {
     color: #ff2b2b !important;
     font-weight: 750;
 }
@@ -231,12 +234,20 @@ def format_date(value) -> str:
     return value.strftime("%Y年%m月%d日 %H:%M")
 
 
+def group_article_frame(frame: pd.DataFrame) -> pd.DataFrame:
+    """元記事を残したまま、同じ発表の転載を画面表示用に束ねる。"""
+    if frame.empty:
+        return frame.copy()
+    return pd.DataFrame(group_syndicated_articles(frame.to_dict("records")))
+
+
 def current_new_articles(frame: pd.DataFrame) -> pd.DataFrame:
     """関連ありの記事から、現在NEW表示中の記事を返す。"""
     if frame.empty:
         return frame.copy()
     base = frame[frame["is_relevant"] == 1].copy()
-    return base[base["display_date"].apply(is_new_article)].sort_values(
+    new_articles = base[base["display_date"].apply(is_new_article)]
+    return group_article_frame(new_articles).sort_values(
         ["subject_category", "display_date"], ascending=[True, False]
     )
 
@@ -322,7 +333,11 @@ def render_subject_summary(frame: pd.DataFrame) -> str | None:
     for index, (_, _, label, subject) in enumerate(SUBJECT_SUMMARY_ROWS):
         view = frame if subject is None else frame[frame["subject_category"] == subject]
         new_count = int(view["display_date"].apply(is_new_article).sum()) if not view.empty else 0
-        source_count = int(view["source_name"].nunique()) if not view.empty else 0
+        source_count = (
+            int(view["syndicated_source_names"].explode().dropna().nunique())
+            if not view.empty
+            else 0
+        )
         is_selected = label == selected_label
 
         with st.container(key=f"subject_summary_row_{index}", border=True):
@@ -375,13 +390,37 @@ def render_article_list(view: pd.DataFrame) -> None:
             with link_col:
                 st.link_button("元記事を開く", row.url, use_container_width=True)
 
+            related_articles = row.syndicated_articles
+            related_sources = row.syndicated_source_names
+            source_text = row.source_name
+            if row.syndicated_count > 1:
+                source_text += (
+                    f"（同じ発表：計{row.syndicated_count}記事・"
+                    f"{len(related_sources)}媒体）"
+                )
+
             paywall_label = PAYWALL_LABELS.get(row.paywall_status, row.paywall_status)
             theme_text = row.themes.replace("｜", "・") if row.themes else "該当テーマなし"
             st.caption(
-                f"{format_date(row.display_date)} ｜ {row.source_name} ｜ "
+                f"{format_date(row.display_date)} ｜ {source_text} ｜ "
                 f"主語：{row.subject_category} ｜ テーマ：{theme_text} ｜ "
                 f"{paywall_label} ｜ 関連度 {row.relevance_score}"
             )
+            if row.syndicated_count > 1:
+                with st.expander(
+                    f"同じ発表の掲載先をすべて見る（{row.syndicated_count}記事）",
+                    key=f"syndicated_group_{row.Index}",
+                ):
+                    for article in related_articles:
+                        safe_source = article.get("source_name", "媒体不明").replace(
+                            "[", "\\["
+                        ).replace("]", "\\]")
+                        safe_title = article.get("title", "タイトル不明").replace(
+                            "[", "\\["
+                        ).replace("]", "\\]")
+                        st.markdown(
+                            f"- [{safe_source}：{safe_title}]({article.get('url', '')})"
+                        )
             if row.summary:
                 st.write(row.summary)
 
@@ -477,14 +516,19 @@ if selected_sources:
     filtered = filtered[filtered["source_name"].isin(selected_sources)]
 
 filtered = filtered.sort_values("display_date", ascending=False)
+display_frame = group_article_frame(filtered)
 
-selected_subject = render_subject_summary(filtered)
+selected_subject = render_subject_summary(display_frame)
 selected_label = selected_subject or "すべて"
 st.markdown(f"### 選択中：{selected_label}")
+st.caption(
+    "同じ発表と推定した転載記事は1件にまとめています。"
+    "各記事カードからすべての掲載先を確認できます。"
+)
 view = (
-    filtered
+    display_frame
     if selected_subject is None
-    else filtered[filtered["subject_category"] == selected_subject]
+    else display_frame[display_frame["subject_category"] == selected_subject]
 )
 render_article_list(view)
 
