@@ -71,6 +71,19 @@ class CollectorTests(unittest.TestCase):
         )
         self.assertIsNone(article)
 
+    def test_ryukyu_shimpo_source_is_excluded(self):
+        article = make_article(
+            title="女性研究者を支援 文科省、大学に補助金",
+            summary="記事概要",
+            url="https://example.com/ryukyu-shimpo",
+            source_name="一般ニュース検索",
+            publisher_name="琉球新報デジタル",
+            source_kind="rss",
+            published_at=None,
+            targeted_source=False,
+        )
+        self.assertIsNone(article)
+
     @patch(
         "news_app.collector.request_content",
         return_value="""
