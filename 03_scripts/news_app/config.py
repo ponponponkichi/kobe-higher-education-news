@@ -23,6 +23,7 @@ EXCLUDED_PUBLISHERS = (
     "ねとらぼ",
     "NHKニュース",
     "琉球新報",
+    "Infoseek",
 )
 
 SOURCES = [
