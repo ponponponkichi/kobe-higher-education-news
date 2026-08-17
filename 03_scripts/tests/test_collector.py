@@ -97,6 +97,39 @@ class CollectorTests(unittest.TestCase):
         )
         self.assertIsNone(article)
 
+    def test_niconico_news_sources_are_excluded(self):
+        for publisher_name in ("ニコニコニュース", "news.nicovideo.jp"):
+            with self.subTest(publisher_name=publisher_name):
+                article = make_article(
+                    title="大学に関するニュース",
+                    summary="記事概要",
+                    url="https://example.com/niconico-news",
+                    source_name="一般ニュース検索",
+                    publisher_name=publisher_name,
+                    source_kind="rss",
+                    published_at=None,
+                    targeted_source=False,
+                )
+                self.assertIsNone(article)
+
+    def test_table_tennis_media_and_syndication_are_excluded(self):
+        for publisher_name, title in (
+            ("卓球メディア｜Rallys", "国公立大学卓球大会が開幕"),
+            ("Yahoo!ニュース", "国公立大学卓球大会（Rallys） - Yahoo!ニュース"),
+        ):
+            with self.subTest(publisher_name=publisher_name):
+                article = make_article(
+                    title=title,
+                    summary="記事概要",
+                    url="https://example.com/table-tennis-media",
+                    source_name="一般ニュース検索",
+                    publisher_name=publisher_name,
+                    source_kind="rss",
+                    published_at=None,
+                    targeted_source=False,
+                )
+                self.assertIsNone(article)
+
     @patch(
         "news_app.collector.request_content",
         return_value="""

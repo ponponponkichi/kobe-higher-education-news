@@ -176,5 +176,42 @@ class PublicSummaryTests(unittest.TestCase):
             self.assertEqual(payload["articles"], [])
 
 
+    def test_existing_niconico_and_table_tennis_articles_are_removed(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            database_path = Path(temporary) / "news.db"
+            output_path = Path(temporary) / "public.json"
+            connection = connect(database_path)
+            connection.close()
+            output_path.write_text(
+                json.dumps(
+                    {
+                        "version": 1,
+                        "articles": [
+                            {
+                                "fingerprint": "niconico",
+                                "source_name": "ニコニコニュース",
+                                "title": "大学に関するニュース",
+                            },
+                            {
+                                "fingerprint": "table-tennis",
+                                "source_name": "卓球メディア｜Rallys",
+                                "title": "国公立大学卓球大会が開幕",
+                            },
+                            {
+                                "fingerprint": "table-tennis-yahoo",
+                                "source_name": "Yahoo!ニュース",
+                                "title": "国公立大学卓球大会（Rallys） - Yahoo!ニュース",
+                            },
+                        ],
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+
+            payload = build_public_feed(database_path, output_path)
+
+            self.assertEqual(payload["articles"], [])
+
 if __name__ == "__main__":
     unittest.main()
