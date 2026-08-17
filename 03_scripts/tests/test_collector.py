@@ -10,6 +10,7 @@ from news_app.config import NEWS_SEARCHES
 class CollectorTests(unittest.TestCase):
     def test_policy_and_newswitch_searches_are_configured(self):
         self.assertIn('"文部科学省" 大学 when:30d', NEWS_SEARCHES)
+        self.assertIn('"女性研究者" 大学 OR 文部科学省 when:30d', NEWS_SEARCHES)
         self.assertIn('"国立大学" when:30d', NEWS_SEARCHES)
         self.assertIn('site:newswitch.jp/p/ 文科省 when:30d', NEWS_SEARCHES)
 
