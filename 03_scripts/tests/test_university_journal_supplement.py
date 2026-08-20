@@ -1,7 +1,9 @@
+import json
 import unittest
+from unittest.mock import Mock, patch
 
 from news_app.classifier import title_fingerprint
-from supplement_university_journal import merge_feed
+from supplement_university_journal import fetch_remote_public_feed, merge_feed
 
 
 def rss_article(title: str, *, fetched_at: str = "2026-08-16T09:00:00+09:00") -> dict:
@@ -24,6 +26,31 @@ def rss_article(title: str, *, fetched_at: str = "2026-08-16T09:00:00+09:00") ->
 
 
 class UniversityJournalSupplementTests(unittest.TestCase):
+    def test_large_github_json_uses_download_url(self):
+        metadata_response = Mock()
+        metadata_response.json.return_value = {
+            "type": "file",
+            "sha": "large-file-sha",
+            "encoding": "none",
+            "content": "",
+            "download_url": "https://raw.example/public_news.json",
+        }
+        raw_response = Mock()
+        raw_response.content = json.dumps(
+            {"version": 1, "articles": []},
+            ensure_ascii=False,
+        ).encode("utf-8")
+
+        with patch(
+            "supplement_university_journal.requests.get",
+            side_effect=[metadata_response, raw_response],
+        ) as request:
+            sha, payload = fetch_remote_public_feed()
+
+        self.assertEqual(sha, "large-file-sha")
+        self.assertEqual(payload["articles"], [])
+        self.assertEqual(request.call_count, 2)
+
     def test_new_article_is_added_without_summary(self):
         remote = {"version": 1, "articles": []}
         payload, added = merge_feed(remote, [rss_article("国立大学の新しい取組")])

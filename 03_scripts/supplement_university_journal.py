@@ -61,7 +61,20 @@ def fetch_remote_public_feed() -> tuple[str, dict]:
     if metadata.get("type") != "file" or not metadata.get("sha"):
         raise SupplementError("GitHubの公表JSONをファイルとして確認できませんでした。")
     try:
-        decoded = base64.b64decode(metadata["content"]).decode("utf-8")
+        if metadata.get("encoding") == "base64" and metadata.get("content"):
+            decoded = base64.b64decode(metadata["content"]).decode("utf-8")
+        elif metadata.get("download_url"):
+            raw_response = requests.get(
+                metadata["download_url"],
+                headers={"User-Agent": USER_AGENT},
+                timeout=REQUEST_TIMEOUT,
+            )
+            raw_response.raise_for_status()
+            decoded = raw_response.content.decode("utf-8")
+        else:
+            raise SupplementError(
+                "GitHubの公表JSON本文を取得できるURLがありません。"
+            )
         payload = json.loads(decoded)
     except (KeyError, ValueError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise SupplementError("GitHubの公表JSONを正しく読み込めませんでした。") from exc

@@ -191,6 +191,8 @@ filter_value、selection_count、has_search_textのカスタム定義を登録�
 - GitHub Actionsが同時実行中ではないか
 - 大学ジャーナルのRSSをブラウザで開けるか
 
+公開用JSONが1MBを超えた場合は、GitHubのraw URLへ自動的に切り替えて読み込みます。
+
 競合を示すメッセージの場合は、GitHub Actions完了後に最初から再実行します。
 
 ### 7.4 Gitのロックエラーが出た
