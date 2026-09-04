@@ -86,6 +86,7 @@ SOURCES = [
 
 NEWS_SEARCHES = [
     "\"神戸大学\" OR \"Kobe University\"",
+    "\"神戸大\" when:30d",
     "国立大学 予算 OR 政策 OR 改革 OR 評価",
     "高等教育 政策 OR 予算 OR 大学",
     "大学 認証評価 OR 法人評価 OR 内部質保証",

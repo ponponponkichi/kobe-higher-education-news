@@ -8,13 +8,21 @@ import unicodedata
 from .config import FREE_PUBLISHERS, LIKELY_PAID_PUBLISHERS
 
 
-CLASSIFIER_VERSION = "4"
+CLASSIFIER_VERSION = "5"
 
 CATEGORY_KOBE = "神戸大学関係"
 CATEGORY_MEXT = "文部科学省関係"
 CATEGORY_NATIONAL = "国立大学関係"
 CATEGORY_EVALUATION = "認証評価・法人評価関係"
 CATEGORY_GENERAL = "高等教育全般"
+
+KOBE_EXACT_KEYWORDS = ("神戸大学", "Kobe University")
+KOBE_ABBREVIATION_PATTERN = re.compile(
+    r"神戸大(?=$|[0-9\s、。，．・:：;；!?！？「」『』（）()【】\[\]…]"
+    r"|が|を|の|に|へ|で|と|は|も|や|から|より|など"
+    r"|教授|准教授|名誉教授|助教|講師|学長|副学長|学生|院生"
+    r"|研究|病院|チーム|発|卒|出身|入試|合格)"
+)
 
 CATEGORY_TABS = [
     CATEGORY_KOBE,
@@ -96,6 +104,14 @@ def contains_any(normalized: str, keywords: tuple[str, ...]) -> bool:
     return any(normalize_text(keyword) in normalized for keyword in keywords)
 
 
+def contains_kobe_reference(value: str) -> bool:
+    """正式名称または語の区切りが確認できる略称だけを神戸大学と判定する。"""
+    normalized = unicodedata.normalize("NFKC", value or "").casefold()
+    if any(keyword.casefold() in normalized for keyword in KOBE_EXACT_KEYWORDS):
+        return True
+    return bool(KOBE_ABBREVIATION_PATTERN.search(normalized))
+
+
 def title_fingerprint(title: str) -> str:
     """配信元名などを除いた重複判定用文字列を返す。"""
     title = re.sub(r"\s*[-–—|｜]\s*[^-–—|｜]{2,30}$", "", title or "")
@@ -116,9 +132,7 @@ def classify_article(
     article_normalized = normalize_text(article_text)
     context_normalized = normalize_text(f"{article_text} {source_name} {search_query}")
 
-    kobe_related = always_kobe or contains_any(
-        article_normalized, ("神戸大学", "Kobe University")
-    )
+    kobe_related = always_kobe or contains_kobe_reference(article_text)
     if kobe_related:
         category = CATEGORY_KOBE
         score = 100
