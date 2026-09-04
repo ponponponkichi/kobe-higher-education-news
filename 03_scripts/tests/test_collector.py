@@ -1,14 +1,85 @@
 import unittest
+import xml.etree.ElementTree as ET
 from unittest.mock import patch
 
 import requests
 
-from news_app.collector import google_news_source, make_article, mext_page_summary
+from news_app.collector import (
+    collect_rss,
+    google_news_source,
+    make_article,
+    mext_page_summary,
+)
 from news_app.config import NEWS_SEARCHES
 
 
 class CollectorTests(unittest.TestCase):
+    @patch(
+        "news_app.collector.request_content",
+        return_value=(
+            b"<rss><channel><item>"
+            b"<title>University news<br> Next topic<br > Details</title>"
+            b"<link>https://univ-journal.jp/example/</link>"
+            b"<pubDate>Fri, 04 Sep 2026 22:00:22 +0000</pubDate>"
+            b"</item></channel></rss>"
+        ),
+    )
+    def test_university_journal_bare_title_breaks_are_repaired(self, _request):
+        articles = collect_rss(
+            {
+                "name": "大学ジャーナルオンライン",
+                "kind": "rss",
+                "url": "https://univ-journal.jp/feed/",
+                "targeted": True,
+            }
+        )
+
+        self.assertEqual(len(articles), 1)
+        self.assertEqual(
+            articles[0]["title"],
+            "University news Next topic Details",
+        )
+
+    @patch(
+        "news_app.collector.request_content",
+        return_value=(
+            b"<rss><channel><item>"
+            b"<title>University news<br> Next topic</title>"
+            b"</item></channel></rss>"
+        ),
+    )
+    def test_other_source_bare_title_break_still_fails(self, _request):
+        with self.assertRaises(ET.ParseError):
+            collect_rss(
+                {
+                    "name": "別の情報源",
+                    "kind": "rss",
+                    "url": "https://example.com/feed/",
+                    "targeted": True,
+                }
+            )
+
+    @patch(
+        "news_app.collector.request_content",
+        return_value=(
+            b"<rss><channel><item>"
+            b"<title>University news<strong> Broken title</title>"
+            b"</item></channel></rss>"
+        ),
+    )
+    def test_university_journal_unrelated_xml_error_still_fails(self, _request):
+        with self.assertRaises(ET.ParseError):
+            collect_rss(
+                {
+                    "name": "大学ジャーナルオンライン",
+                    "kind": "rss",
+                    "url": "https://univ-journal.jp/feed/",
+                    "targeted": True,
+                }
+            )
+
     def test_policy_and_newswitch_searches_are_configured(self):
+        self.assertIn('"神戸大" when:30d', NEWS_SEARCHES)
         self.assertIn('"文部科学省" 大学 when:30d', NEWS_SEARCHES)
         self.assertIn('"女性研究者" 大学 OR 文部科学省 when:30d', NEWS_SEARCHES)
         self.assertIn('"国立大学" when:30d', NEWS_SEARCHES)
@@ -26,6 +97,22 @@ class CollectorTests(unittest.TestCase):
             url="https://example.com/press-release",
             source_name="一般ニュース検索",
             publisher_name="PR TIMES",
+            source_kind="rss",
+            published_at=None,
+            targeted_source=False,
+        )
+        self.assertIsNone(article)
+
+    def test_image_gallery_page_is_excluded(self):
+        article = make_article(
+            title=(
+                "世界トップレベル大学院教育拠点、神戸大1件を選定…文科省 "
+                "1枚目の写真・画像 - リセマム"
+            ),
+            summary="記事本体ではなく画像ページです。",
+            url="https://example.com/photo/1",
+            source_name="一般ニュース検索",
+            publisher_name="リセマム",
             source_kind="rss",
             published_at=None,
             targeted_source=False,

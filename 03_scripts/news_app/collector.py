@@ -29,6 +29,15 @@ from .storage import (
 )
 
 
+UNIVERSITY_JOURNAL_SOURCE = "大学ジャーナルオンライン"
+MAX_UNIVERSITY_JOURNAL_TITLE_BREAKS = 20
+_TITLE_ELEMENT_PATTERN = re.compile(
+    rb"(<title(?:\s[^>]*)?>)(.*?)(</title\s*>)",
+    re.IGNORECASE | re.DOTALL,
+)
+_BARE_HTML_BREAK_PATTERN = re.compile(rb"<br\s*>", re.IGNORECASE)
+
+
 def now_iso() -> str:
     return datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
 
@@ -88,6 +97,36 @@ def request_content(url: str) -> bytes:
     return response.content
 
 
+def _repair_university_journal_title_breaks(content: bytes) -> tuple[bytes, int]:
+    """大学ジャーナルのtitle内にある未閉鎖のbrだけを空白へ置き換える。"""
+    replacement_count = 0
+
+    def replace_title(match: re.Match[bytes]) -> bytes:
+        nonlocal replacement_count
+        title_body = match.group(2)
+        if b"<![CDATA[" in title_body:
+            return match.group(0)
+        repaired_body, count = _BARE_HTML_BREAK_PATTERN.subn(b" ", title_body)
+        replacement_count += count
+        return match.group(1) + repaired_body + match.group(3)
+
+    repaired = _TITLE_ELEMENT_PATTERN.sub(replace_title, content)
+    return repaired, replacement_count
+
+
+def parse_rss_xml(content: bytes, source_name: str) -> ET.Element:
+    """通常は厳密に解析し、既知の大学ジャーナルtitle不備だけを限定補正する。"""
+    try:
+        return ET.fromstring(content)
+    except ET.ParseError:
+        if source_name != UNIVERSITY_JOURNAL_SOURCE:
+            raise
+        repaired, replacement_count = _repair_university_journal_title_breaks(content)
+        if not 1 <= replacement_count <= MAX_UNIVERSITY_JOURNAL_TITLE_BREAKS:
+            raise
+        return ET.fromstring(repaired)
+
+
 def make_article(
     *,
     title: str,
@@ -103,6 +142,8 @@ def make_article(
 ) -> dict | None:
     title = clean_html(title, 300)
     if not title or len(title) < 4:
+        return None
+    if re.search(r"\d+\s*枚目の写真・画像", title):
         return None
     summary = clean_html(summary)
     url = normalize_url(url)
@@ -138,7 +179,7 @@ def make_article(
 
 
 def collect_rss(source: dict) -> list[dict]:
-    root = ET.fromstring(request_content(source["url"]))
+    root = parse_rss_xml(request_content(source["url"]), source["name"])
     entries = [node for node in root.iter() if local_name(node.tag) in {"item", "entry"}]
     articles = []
     for entry in entries:

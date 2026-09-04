@@ -19,6 +19,26 @@ class ClassifierTests(unittest.TestCase):
         self.assertEqual(result["relevance_score"], 100)
         self.assertTrue(result["kobe_related"])
 
+    def test_abbreviated_kobe_name_is_highest_priority(self):
+        result = classify_article(
+            "世界トップレベル大学院教育拠点、神戸大1件を選定…文科省"
+        )
+        self.assertEqual(result["category"], CATEGORY_KOBE)
+        self.assertEqual(result["relevance_score"], 100)
+        self.assertTrue(result["kobe_related"])
+
+    def test_abbreviated_kobe_name_with_particle_is_highest_priority(self):
+        result = classify_article("神戸大が新しい教育制度を発表")
+        self.assertEqual(result["category"], CATEGORY_KOBE)
+        self.assertTrue(result["kobe_related"])
+
+    def test_words_starting_with_kobe_dai_are_not_kobe_university(self):
+        for title in ("神戸大会を開催", "神戸大橋で交通規制"):
+            with self.subTest(title=title):
+                result = classify_article(title)
+                self.assertNotEqual(result["category"], CATEGORY_KOBE)
+                self.assertFalse(result["kobe_related"])
+
     def test_evaluation_categories_are_combined(self):
         for title in (
             "大学機関別認証評価の評価結果を公表",
