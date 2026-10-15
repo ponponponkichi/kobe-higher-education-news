@@ -37,6 +37,8 @@ GitHub Actionsの `Daily higher education news update` が、毎日22:30 UTC
 3. 公開用JSONを生成
 4. 変更がある場合だけ `02_output/public_news.json` をGitHubへ保存
 5. Streamlit Community Cloudが更新を読み込む
+6. 専用Gmailから日次ニュースメールを送信
+7. 送信成功時刻と件数だけをGitHubへ保存
 
 通常は手作業を行いません。
 
@@ -51,6 +53,23 @@ GitHub Actionsを開き、最新の実行結果を確認します。
 
 日次処理は `--allow-partial` を使用しています。緑色でも一部の情報源が失敗している
 場合があるため、週1回程度はログの「情報源○件、失敗○件」を確認します。
+
+### 3.3 メール配信の初回設定
+
+専用Gmailで2段階認証とアプリパスワードを準備します。GitHubリポジトリの
+`Settings` → `Secrets and variables` → `Actions` → `New repository secret` で、
+次の3件を登録します。値はREADMEやチャットへ貼り付けません。
+
+- `DIGEST_GMAIL_ADDRESS`：専用Gmailのメールアドレス
+- `DIGEST_GMAIL_APP_PASSWORD`：Gmailで発行したアプリパスワード
+- `DIGEST_RECIPIENTS`：配信先の学内グループアドレス
+
+3件がそろうまではメールだけを自動的に見送るため、ニュース更新は止まりません。
+登録後はGitHub Actionsの `Run workflow` を手動実行し、グループアドレスへの着信、
+3ブロックの表示、Actionsの正常終了を確認します。
+
+メール送信でエラーになっても、直前に完了した公表用JSONの更新は維持されます。
+送信成功時刻は更新されないため、原因を直した次回実行で未送信記事を再送します。
 
 ## 4. 大学ジャーナルオンラインのPC補完
 

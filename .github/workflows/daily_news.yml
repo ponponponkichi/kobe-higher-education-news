@@ -44,3 +44,21 @@ jobs:
             git commit -m "Update public news feed"
             git push
           fi
+
+      - name: Send daily email digest
+        env:
+          DIGEST_GMAIL_ADDRESS: ${{ secrets.DIGEST_GMAIL_ADDRESS }}
+          DIGEST_GMAIL_APP_PASSWORD: ${{ secrets.DIGEST_GMAIL_APP_PASSWORD }}
+          DIGEST_RECIPIENTS: ${{ secrets.DIGEST_RECIPIENTS }}
+        run: python 03_scripts/send_daily_digest.py --skip-if-unconfigured
+
+      - name: Commit email delivery state when changed
+        if: ${{ hashFiles('02_output/email_digest_state.json') != '' }}
+        run: |
+          git add 02_output/email_digest_state.json
+          if git diff --cached --quiet; then
+            echo "No email delivery state changes."
+          else
+            git commit -m "Update email digest delivery state"
+            git push
+          fi
