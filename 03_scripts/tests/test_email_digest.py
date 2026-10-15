@@ -111,10 +111,10 @@ class EmailDigestTests(unittest.TestCase):
         self.assertIn("&lt;script&gt;", html_body)
         self.assertNotIn("<script>", html_body)
 
-    @patch("news_app.email_digest.smtplib.SMTP_SSL")
-    def test_gmail_login_and_send(self, smtp_ssl):
+    @patch("news_app.email_digest.smtplib.SMTP")
+    def test_gmail_login_and_send(self, smtp_connection):
         smtp = MagicMock()
-        smtp_ssl.return_value.__enter__.return_value = smtp
+        smtp_connection.return_value.__enter__.return_value = smtp
         settings = MailSettings(
             sender="sender@example.com",
             app_password="app-password",
@@ -124,6 +124,8 @@ class EmailDigestTests(unittest.TestCase):
 
         send_message(settings, message)
 
+        smtp_connection.assert_called_once_with("smtp.gmail.com", 587, timeout=30)
+        smtp.starttls.assert_called_once()
         smtp.login.assert_called_once_with("sender@example.com", "app-password")
         smtp.send_message.assert_called_once_with(message)
 
