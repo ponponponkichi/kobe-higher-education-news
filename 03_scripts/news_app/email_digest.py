@@ -5,6 +5,7 @@ from __future__ import annotations
 import html
 import json
 import smtplib
+import ssl
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
@@ -224,8 +225,11 @@ def build_message(
 
 
 def send_message(settings: MailSettings, message: EmailMessage) -> None:
-    """GmailのSSL接続でメールを送る。認証情報はログへ出力しない。"""
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as smtp:
+    """GmailのSTARTTLS接続でメールを送る。認証情報はログへ出力しない。"""
+    with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as smtp:
+        smtp.ehlo()
+        smtp.starttls(context=ssl.create_default_context())
+        smtp.ehlo()
         smtp.login(settings.sender, settings.app_password)
         smtp.send_message(message)
 
