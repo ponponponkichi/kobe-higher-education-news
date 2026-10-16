@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 
 from news_app.email_digest import (
     MailSettings,
+    PORTAL_URL,
     build_message,
     email_summary,
     read_json,
@@ -126,6 +127,14 @@ class EmailDigestTests(unittest.TestCase):
         html_body = message.get_body(("html",)).get_content()
         self.assertIn("&lt;script&gt;", html_body)
         self.assertNotIn("<script>", html_body)
+        self.assertIn(
+            f"ポータルサイト: {PORTAL_URL}",
+            message.get_body(("plain",)).get_content(),
+        )
+        self.assertIn(
+            f'ポータルサイト: <a href="{PORTAL_URL}">{PORTAL_URL}</a>',
+            html_body,
+        )
 
     @patch("news_app.email_digest.smtplib.SMTP")
     def test_gmail_login_and_send(self, smtp_connection):
