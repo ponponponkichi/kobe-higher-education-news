@@ -21,6 +21,7 @@ JST = ZoneInfo("Asia/Tokyo")
 PORTAL_URL = "https://kobe-higher-education-news.streamlit.app"
 DIGEST_SUBJECTS = (SUBJECT_KOBE, SUBJECT_MEXT, SUBJECT_NATIONAL)
 STATE_VERSION = 1
+EMAIL_SUMMARY_LIMIT = 200
 
 
 @dataclass(frozen=True)
@@ -95,6 +96,14 @@ def _safe_url(value: str) -> str:
     return value if parsed.scheme in {"http", "https"} and parsed.netloc else ""
 
 
+def email_summary(article: dict) -> str:
+    """保存内容は変えず、メール内の概要だけを読みやすい長さに整える。"""
+    summary = (article.get("summary") or "").strip()
+    if len(summary) <= EMAIL_SUMMARY_LIMIT:
+        return summary
+    return summary[:EMAIL_SUMMARY_LIMIT].rstrip() + "…"
+
+
 def _group_articles(articles: list[dict]) -> dict[str, list[dict]]:
     return {
         subject: [
@@ -134,7 +143,7 @@ def render_plain_text(
             lines.append(
                 f"  {article.get('source_name', '媒体不明')} / {_display_date(article)}"
             )
-            summary = (article.get("summary") or "").strip()
+            summary = email_summary(article)
             if summary:
                 lines.append(f"  {summary}")
             url = _safe_url(article.get("url", ""))
@@ -172,7 +181,7 @@ def render_html(
             title_html = (
                 f'<a href="{html.escape(url, quote=True)}">{title}</a>' if url else title
             )
-            summary = html.escape((article.get("summary") or "").strip())
+            summary = html.escape(email_summary(article))
             summary_html = f'<p style="margin:6px 0 0">{summary}</p>' if summary else ""
             items.append(
                 '<li style="margin-bottom:16px">'
