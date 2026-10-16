@@ -132,6 +132,10 @@ class EmailDigestTests(unittest.TestCase):
             message.get_body(("plain",)).get_content(),
         )
         self.assertIn(
+            "高等教育ニュースポータル 日次レポート\nポータルサイト:",
+            message.get_body(("plain",)).get_content(),
+        )
+        self.assertIn(
             f'ポータルサイト: <a href="{PORTAL_URL}">{PORTAL_URL}</a>',
             html_body,
         )

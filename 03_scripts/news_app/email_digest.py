@@ -124,7 +124,6 @@ def render_plain_text(
     grouped = _group_articles(articles)
     lines = [
         "高等教育ニュースポータル 日次レポート",
-        "",
         f"ポータルサイト: {PORTAL_URL}",
         "",
         f"対象期間: {window_start.astimezone(JST):%Y/%m/%d %H:%M} ～ "
@@ -201,8 +200,8 @@ def render_html(
         )
     return f"""<!doctype html>
 <html lang="ja"><body style="font-family:Arial,'Noto Sans JP',sans-serif;line-height:1.6;color:#222">
-<h1 style="font-size:22px">高等教育ニュースポータル 日次レポート</h1>
-<p>ポータルサイト: <a href="{PORTAL_URL}">{PORTAL_URL}</a></p>
+<h1 style="font-size:22px;margin:0">高等教育ニュースポータル 日次レポート</h1>
+<p style="margin:0 0 16px">ポータルサイト: <a href="{PORTAL_URL}">{PORTAL_URL}</a></p>
 <p>対象期間: {window_start.astimezone(JST):%Y/%m/%d %H:%M} ～ {now.astimezone(JST):%Y/%m/%d %H:%M}<br>
 新着: <strong>{len(articles)}件</strong></p>
 {''.join(sections)}
