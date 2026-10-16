@@ -22,7 +22,7 @@ jobs:
         env:
           DIGEST_GMAIL_ADDRESS: ${{ secrets.DIGEST_GMAIL_ADDRESS }}
           DIGEST_GMAIL_APP_PASSWORD: ${{ secrets.DIGEST_GMAIL_APP_PASSWORD }}
-          DIGEST_RECIPIENTS: ${{ secrets.DIGEST_RECIPIENTS }}
+          DIGEST_RECIPIENTS: ${{ secrets.DIGEST_TEST_RECIPIENT }}
         run: >-
           python 03_scripts/send_daily_digest.py
           --state "${RUNNER_TEMP}/email_digest_test_state.json"
