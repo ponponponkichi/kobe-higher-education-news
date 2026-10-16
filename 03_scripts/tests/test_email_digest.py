@@ -119,7 +119,11 @@ class EmailDigestTests(unittest.TestCase):
             now=NOW,
         )
 
-        self.assertIn("新着1件", message["Subject"])
+        self.assertEqual(
+            message["Subject"],
+            "高等教育ニュース 2026年10月16日（新着1件）",
+        )
+        self.assertNotIn("試験配信", message.as_string())
         self.assertIn(
             "大学ニュース <script>",
             message.get_body(("plain",)).get_content(),

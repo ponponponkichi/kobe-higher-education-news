@@ -155,7 +155,7 @@ def render_plain_text(
         [
             f"ニュース一覧: {PORTAL_URL}",
             "",
-            "このメールは公開情報を自動収集・分類した試験配信です。",
+            "このメールは公開情報を自動収集・分類した日次レポートです。",
             "大学の公式通知ではありません。詳細・正確な内容はリンク先をご確認ください。",
         ]
     )
@@ -207,7 +207,7 @@ def render_html(
 {''.join(sections)}
 <p><a href="{PORTAL_URL}">ニュース一覧を開く</a></p>
 <hr>
-<p style="font-size:12px;color:#666">このメールは公開情報を自動収集・分類した試験配信です。<br>
+<p style="font-size:12px;color:#666">このメールは公開情報を自動収集・分類した日次レポートです。<br>
 大学の公式通知ではありません。詳細・正確な内容はリンク先をご確認ください。</p>
 </body></html>"""
 
@@ -222,7 +222,7 @@ def build_message(
     local_now = now.astimezone(JST)
     message = EmailMessage()
     message["Subject"] = (
-        f"[試験配信] 高等教育ニュース {local_now:%Y年%m月%d日}（新着{len(articles)}件）"
+        f"高等教育ニュース {local_now:%Y年%m月%d日}（新着{len(articles)}件）"
     )
     message["From"] = formataddr((settings.sender_name, settings.sender))
     message["To"] = ", ".join(settings.recipients)
