@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 from news_app.email_digest import (
     MailSettings,
     build_message,
+    email_summary,
     read_json,
     select_digest_articles,
     send_message,
@@ -40,6 +41,21 @@ def article(fingerprint, subject, first_seen_at, **overrides):
 
 
 class EmailDigestTests(unittest.TestCase):
+    def test_email_summary_is_limited_without_changing_article(self):
+        original = "概要" * 150
+        news = article(
+            "long-summary",
+            SUBJECT_KOBE,
+            "2026-10-15T20:00:00+00:00",
+            summary=original,
+        )
+
+        shortened = email_summary(news)
+
+        self.assertEqual(len(shortened), 201)
+        self.assertTrue(shortened.endswith("…"))
+        self.assertEqual(news["summary"], original)
+
     def test_broken_json_stops_instead_of_advancing_delivery_state(self):
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "broken.json"
