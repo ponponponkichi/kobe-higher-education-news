@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import urlparse
 
 from .config import DATABASE_PATH, EXCLUDED_PUBLISHERS, PUBLIC_DATA_PATH
 from .storage import connect, ensure_current_classification, ensure_current_subject_themes
@@ -73,6 +74,50 @@ def _read_existing(path: Path) -> dict[str, dict]:
     }
 
 
+def _matching_existing_articles(
+    merged: dict[str, dict], article: dict
+) -> list[tuple[str, dict]]:
+    """同じ指紋、または同じGoogleニュース記事URLを持つ既存記事を返す。"""
+    fingerprint = article.get("fingerprint")
+    url = (article.get("url") or "").strip()
+    parsed_url = urlparse(url)
+    stable_google_news_url = (
+        parsed_url.netloc.casefold() == "news.google.com"
+        and parsed_url.path.startswith("/rss/articles/")
+    )
+    return [
+        (existing_fingerprint, existing)
+        for existing_fingerprint, existing in merged.items()
+        if existing_fingerprint == fingerprint
+        or (
+            stable_google_news_url
+            and (existing.get("url") or "").strip() == url
+        )
+    ]
+
+
+def _earliest_first_seen(matches: list[tuple[str, dict]]) -> str | None:
+    """既存の初回取得日時のうち、最も古い値を返す。"""
+    values = [
+        article.get("first_seen_at")
+        for _, article in matches
+        if article.get("first_seen_at")
+    ]
+    if not values:
+        return None
+
+    def sort_key(value: str) -> tuple[int, datetime | str]:
+        try:
+            parsed = datetime.fromisoformat(value)
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=timezone.utc)
+            return (0, parsed.astimezone(timezone.utc))
+        except (TypeError, ValueError):
+            return (1, value)
+
+    return min(values, key=sort_key)
+
+
 def build_public_feed(
     database_path: Path = DATABASE_PATH,
     output_path: Path = PUBLIC_DATA_PATH,
@@ -97,9 +142,13 @@ def build_public_feed(
         article = dict(row)
         if is_excluded_public_article(article):
             continue
-        previous = merged.get(article["fingerprint"], {})
-        if previous.get("first_seen_at"):
-            article["first_seen_at"] = previous["first_seen_at"]
+        matches = _matching_existing_articles(merged, article)
+        first_seen_at = _earliest_first_seen(matches)
+        if first_seen_at:
+            article["first_seen_at"] = first_seen_at
+        for existing_fingerprint, _ in matches:
+            if existing_fingerprint != article["fingerprint"]:
+                merged.pop(existing_fingerprint, None)
         article["summary"], article["summary_policy"] = public_summary(article)
         article.pop("id", None)
         article.pop("subject_theme_version", None)

@@ -14,6 +14,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
 
+from .presentation import is_new_article
 from .taxonomy import SUBJECT_KOBE, SUBJECT_MEXT, SUBJECT_NATIONAL
 
 
@@ -63,7 +64,7 @@ def select_digest_articles(
     *,
     now: datetime,
 ) -> tuple[datetime, list[dict]]:
-    """送信対象の3分類に属し、前回成功後に初めて取得した記事を選ぶ。"""
+    """3分類から、前回成功後に初取得し、公開3日以内の記事を選ぶ。"""
     if now.tzinfo is None:
         now = now.replace(tzinfo=timezone.utc)
     now = now.astimezone(timezone.utc)
@@ -74,6 +75,15 @@ def select_digest_articles(
             continue
         first_seen = parse_datetime(article.get("first_seen_at"))
         if first_seen is None or not window_start < first_seen <= now:
+            continue
+        published_at = parse_datetime(
+            article.get("published_at") or article.get("first_seen_at")
+        )
+        published_today = (
+            published_at is not None
+            and published_at.astimezone(JST).date() == now.astimezone(JST).date()
+        )
+        if not published_today and not is_new_article(published_at, now=now):
             continue
         selected.append(article)
     selected.sort(
