@@ -175,6 +175,122 @@ class PublicSummaryTests(unittest.TestCase):
 
             self.assertEqual(payload["articles"], [])
 
+    def test_same_url_preserves_first_seen_and_replaces_old_title_variant(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            database_path = Path(temporary) / "news.db"
+            output_path = Path(temporary) / "public.json"
+            connection = connect(database_path)
+            upsert_articles(
+                connection,
+                [
+                    {
+                        "fingerprint": "new-title-fingerprint",
+                        "title": "同じ記事｜大学ニュースサイト - 大学名",
+                        "summary": "公開概要",
+                        "url": "https://news.google.com/rss/articles/same-article?oc=5",
+                        "source_name": "ニュース検索",
+                        "source_kind": "rss",
+                        "published_at": "2026-08-25T07:00:00+00:00",
+                        "fetched_at": "2026-10-20T01:00:00+00:00",
+                        "category": "神戸大学関係",
+                        "relevance_score": 100,
+                        "kobe_related": 1,
+                        "is_relevant": 1,
+                        "paywall_status": "unknown",
+                        "search_query": "神戸大学",
+                    }
+                ],
+            )
+            connection.close()
+            output_path.write_text(
+                json.dumps(
+                    {
+                        "version": 1,
+                        "articles": [
+                            {
+                                "fingerprint": "old-title-fingerprint",
+                                "title": "同じ記事 - 大学名",
+                                "url": "https://news.google.com/rss/articles/same-article?oc=5",
+                                "source_name": "ニュース検索",
+                                "source_kind": "rss",
+                                "published_at": "2026-08-25T07:00:00+00:00",
+                                "first_seen_at": "2026-10-07T01:00:00+00:00",
+                                "summary": "",
+                            }
+                        ],
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+
+            payload = build_public_feed(database_path, output_path)
+
+            self.assertEqual(len(payload["articles"]), 1)
+            self.assertEqual(
+                payload["articles"][0]["fingerprint"], "new-title-fingerprint"
+            )
+            self.assertEqual(
+                payload["articles"][0]["first_seen_at"],
+                "2026-10-07T01:00:00+00:00",
+            )
+
+    def test_reused_non_google_news_url_does_not_merge_different_articles(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            database_path = Path(temporary) / "news.db"
+            output_path = Path(temporary) / "public.json"
+            connection = connect(database_path)
+            upsert_articles(
+                connection,
+                [
+                    {
+                        "fingerprint": "second-notice",
+                        "title": "大学教育の同じ案内ページに掲載された2件目",
+                        "summary": "2件目の公開概要",
+                        "url": "https://example.com/shared-information-page",
+                        "source_name": "文部科学省",
+                        "source_kind": "rss",
+                        "published_at": "2026-10-20T00:00:00+00:00",
+                        "fetched_at": "2026-10-20T01:00:00+00:00",
+                        "category": "文部科学省関係",
+                        "relevance_score": 100,
+                        "kobe_related": 0,
+                        "is_relevant": 1,
+                        "paywall_status": "free",
+                        "search_query": "",
+                    }
+                ],
+            )
+            connection.close()
+            output_path.write_text(
+                json.dumps(
+                    {
+                        "version": 1,
+                        "articles": [
+                            {
+                                "fingerprint": "first-notice",
+                                "title": "大学教育の同じ案内ページに掲載された1件目",
+                                "url": "https://example.com/shared-information-page",
+                                "source_name": "文部科学省",
+                                "source_kind": "rss",
+                                "published_at": "2026-10-19T00:00:00+00:00",
+                                "first_seen_at": "2026-10-19T01:00:00+00:00",
+                                "summary": "1件目の公開概要",
+                            }
+                        ],
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+
+            payload = build_public_feed(database_path, output_path)
+
+            self.assertEqual(
+                {article["fingerprint"] for article in payload["articles"]},
+                {"first-notice", "second-notice"},
+            )
+
 
     def test_existing_niconico_and_table_tennis_articles_are_removed(self):
         with tempfile.TemporaryDirectory() as temporary:

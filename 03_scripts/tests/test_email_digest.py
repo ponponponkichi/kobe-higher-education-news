@@ -97,6 +97,75 @@ class EmailDigestTests(unittest.TestCase):
 
         self.assertEqual([item["fingerprint"] for item in selected], ["after"])
 
+    def test_old_publication_is_not_included_even_if_first_seen_today(self):
+        state = {"last_successful_send_at": "2026-10-15T18:00:00+00:00"}
+        feed = {
+            "articles": [
+                article(
+                    "old-publication",
+                    SUBJECT_KOBE,
+                    "2026-10-15T20:00:00+00:00",
+                    published_at="2026-10-01T00:00:00+00:00",
+                ),
+                article(
+                    "recent-publication",
+                    SUBJECT_KOBE,
+                    "2026-10-15T20:00:00+00:00",
+                    published_at="2026-10-14T00:00:00+00:00",
+                ),
+            ]
+        }
+
+        _, selected = select_digest_articles(feed, state, now=NOW)
+
+        self.assertEqual(
+            [item["fingerprint"] for item in selected], ["recent-publication"]
+        )
+
+    def test_missing_publication_date_uses_first_seen_like_the_site(self):
+        state = {"last_successful_send_at": "2026-10-15T18:00:00+00:00"}
+        feed = {
+            "articles": [
+                article(
+                    "unknown-publication",
+                    SUBJECT_MEXT,
+                    "2026-10-15T20:00:00+00:00",
+                    published_at=None,
+                )
+            ]
+        }
+
+        _, selected = select_digest_articles(feed, state, now=NOW)
+
+        self.assertEqual(
+            [item["fingerprint"] for item in selected], ["unknown-publication"]
+        )
+
+    def test_publication_later_on_the_same_jst_day_is_included(self):
+        state = {"last_successful_send_at": "2026-10-15T18:00:00+00:00"}
+        feed = {
+            "articles": [
+                article(
+                    "same-day-future-time",
+                    SUBJECT_MEXT,
+                    "2026-10-15T20:00:00+00:00",
+                    published_at="2026-10-16T01:00:00+00:00",
+                ),
+                article(
+                    "next-day",
+                    SUBJECT_MEXT,
+                    "2026-10-15T20:00:00+00:00",
+                    published_at="2026-10-16T15:00:00+00:00",
+                ),
+            ]
+        }
+
+        _, selected = select_digest_articles(feed, state, now=NOW)
+
+        self.assertEqual(
+            [item["fingerprint"] for item in selected], ["same-day-future-time"]
+        )
+
     def test_message_has_plain_and_html_parts_and_escapes_html(self):
         settings = MailSettings(
             sender="sender@example.com",
