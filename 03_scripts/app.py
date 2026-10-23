@@ -13,7 +13,12 @@ from news_app.presentation import (
     is_new_article,
 )
 from news_app.public_feed import read_public_feed
-from news_app.security import escape_markdown_text, safe_anchor_html, safe_external_url
+from news_app.security import (
+    escape_markdown_text,
+    safe_anchor_html,
+    safe_external_url,
+    safe_text_html,
+)
 from news_app.taxonomy import (
     SUBJECT_KOBE,
     SUBJECT_MEXT,
@@ -382,7 +387,7 @@ def render_article_list(view: pd.DataFrame) -> None:
         with st.container(border=True):
             title_col, link_col = st.columns([8, 1.3])
             with title_col:
-                title = escape_markdown_text(
+                title = safe_text_html(
                     f"{'⭐ ' if row.kobe_related else ''}{row.title}"
                 )
                 if is_new_article(row.display_date):
@@ -390,9 +395,9 @@ def render_article_list(view: pd.DataFrame) -> None:
                     with badge_col:
                         st.badge("NEW!", color="red")
                     with text_col:
-                        st.markdown(f"### {title}")
+                        st.html(f"<h3>{title}</h3>")
                 else:
-                    st.markdown(f"### {title}")
+                    st.html(f"<h3>{title}</h3>")
             with link_col:
                 safe_url = safe_external_url(row.url)
                 if safe_url:
@@ -430,9 +435,9 @@ def render_article_list(view: pd.DataFrame) -> None:
                         if safe_link:
                             st.markdown(f"- {safe_link}", unsafe_allow_html=True)
                         else:
-                            st.markdown(f"- {escape_markdown_text(label)}")
+                            st.html(f"<ul><li>{safe_text_html(label)}</li></ul>")
             if row.summary:
-                st.markdown(escape_markdown_text(row.summary))
+                st.html(f"<p>{safe_text_html(row.summary)}</p>")
 
 
 frame, generated_at = load_articles()
