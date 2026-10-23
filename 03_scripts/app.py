@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 import json
 import os
 
@@ -17,7 +18,6 @@ from news_app.security import (
     escape_markdown_text,
     safe_anchor_html,
     safe_external_url,
-    safe_text_html,
 )
 from news_app.taxonomy import (
     SUBJECT_KOBE,
@@ -28,6 +28,13 @@ from news_app.taxonomy import (
     THEME_ALL,
     THEME_TABS,
 )
+
+
+def safe_text_html(value: object) -> str:
+    """外部文字列を、リンク化されない安全なHTMLテキストとして返す。"""
+    text = "" if value is None else str(value)
+    text = text.replace("\r", " ").replace("\n", " ")
+    return html.escape(text)
 
 
 st.set_page_config(
