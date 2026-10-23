@@ -43,6 +43,13 @@ def escape_markdown_text(value: object) -> str:
     return _MARKDOWN_SPECIAL.sub(r"\\\1", text)
 
 
+def safe_text_html(value: object) -> str:
+    """外部文字列を、リンク化されない安全なHTMLテキストとして返す。"""
+    text = "" if value is None else str(value)
+    text = text.replace("\r", " ").replace("\n", " ")
+    return html.escape(text)
+
+
 def safe_anchor_html(label: object, url: object) -> str:
     """安全な外部リンクのHTMLを返す。無効なURLならリンクを作らない。"""
     safe_url = safe_external_url(url)
