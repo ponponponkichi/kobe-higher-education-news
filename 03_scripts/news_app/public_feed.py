@@ -8,6 +8,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from .config import DATABASE_PATH, EXCLUDED_PUBLISHERS, PUBLIC_DATA_PATH
+from .security import safe_external_url
 from .storage import connect, ensure_current_classification, ensure_current_subject_themes
 
 
@@ -60,6 +61,13 @@ def public_summary(article: dict) -> tuple[str, str]:
     return "", "hidden_non_rss"
 
 
+def _safe_public_article(article: dict) -> dict:
+    """記事のコピーを作り、公開可能なURLだけを残す。"""
+    safe_article = dict(article)
+    safe_article["url"] = safe_external_url(safe_article.get("url", ""))
+    return safe_article
+
+
 def _read_existing(path: Path) -> dict[str, dict]:
     if not path.exists():
         return {}
@@ -68,7 +76,7 @@ def _read_existing(path: Path) -> dict[str, dict]:
     except (OSError, json.JSONDecodeError):
         return {}
     return {
-        article["fingerprint"]: article
+        article["fingerprint"]: _safe_public_article(article)
         for article in payload.get("articles", [])
         if article.get("fingerprint") and not is_excluded_public_article(article)
     }
@@ -150,6 +158,7 @@ def build_public_feed(
             if existing_fingerprint != article["fingerprint"]:
                 merged.pop(existing_fingerprint, None)
         article["summary"], article["summary_policy"] = public_summary(article)
+        article = _safe_public_article(article)
         article.pop("id", None)
         article.pop("subject_theme_version", None)
         merged[article["fingerprint"]] = article
@@ -184,4 +193,8 @@ def read_public_feed(path: Path = PUBLIC_DATA_PATH) -> dict:
     """公表用JSONを読み込む。未生成時は空データを返す。"""
     if not path.exists():
         return {"version": PUBLIC_FEED_VERSION, "generated_at": "", "articles": []}
-    return json.loads(path.read_text(encoding="utf-8"))
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["articles"] = [
+        _safe_public_article(article) for article in payload.get("articles", [])
+    ]
+    return payload
