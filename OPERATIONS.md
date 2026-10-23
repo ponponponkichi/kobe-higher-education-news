@@ -297,6 +297,22 @@ python -m unittest discover -s .\03_scripts\tests -v
 python -m streamlit run .\03_scripts\app.py
 ```
 
+### 11.1 セキュリティ検査と更新通知
+
+GitHub Actionsの `Security and regression tests` は、毎週月曜9時（日本時間）と、
+Pythonコード・依存関係・セキュリティ設定の変更時に自動実行されます。
+
+1. `pip-audit` でPythonライブラリの既知の脆弱性を確認
+2. 単体テストを実行し、既存機能への影響を確認
+
+Dependabotは、PythonライブラリとGitHub Actionsに更新候補がある場合、
+Pull Requestを作成します。**自動マージは行いません。** 内容とテスト結果を確認してから、
+手動でマージします。
+
+公開画面と日次メールでは、外部記事のURLをHTTP・HTTPSの絶対URLに限定しています。
+記事タイトルや概要にMarkdown・HTMLの記号が含まれても、リンクや画像として実行されない
+ように表示時の処理を行います。
+
 ## 12. 定期的に見直す項目
 
 - 情報源のRSS URLや利用条件に変更がないか
