@@ -11,10 +11,10 @@ from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from email.utils import formataddr
 from pathlib import Path
-from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
 
 from .presentation import is_new_article
+from .security import safe_external_url
 from .taxonomy import SUBJECT_KOBE, SUBJECT_MEXT, SUBJECT_NATIONAL
 
 
@@ -100,12 +100,6 @@ def _display_date(article: dict) -> str:
     return value.astimezone(JST).strftime("%Y/%m/%d") if value else "日付不明"
 
 
-def _safe_url(value: str) -> str:
-    value = (value or "").strip()
-    parsed = urlparse(value)
-    return value if parsed.scheme in {"http", "https"} and parsed.netloc else ""
-
-
 def email_summary(article: dict) -> str:
     """保存内容は変えず、メール内の概要だけを読みやすい長さに整える。"""
     summary = (article.get("summary") or "").strip()
@@ -157,7 +151,7 @@ def render_plain_text(
             summary = email_summary(article)
             if summary:
                 lines.append(f"  {summary}")
-            url = _safe_url(article.get("url", ""))
+            url = safe_external_url(article.get("url", ""))
             if url:
                 lines.append(f"  {url}")
             lines.append("")
@@ -188,7 +182,7 @@ def render_html(
         for article in subject_articles:
             title = html.escape(article.get("title") or "無題")
             source = html.escape(article.get("source_name") or "媒体不明")
-            url = _safe_url(article.get("url", ""))
+            url = safe_external_url(article.get("url", ""))
             title_html = (
                 f'<a href="{html.escape(url, quote=True)}">{title}</a>' if url else title
             )
